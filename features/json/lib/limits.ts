@@ -1,4 +1,4 @@
-import { MAX_INPUT_BYTES } from "../size-limit";
+import { MAX_INPUT_BYTES } from "./size-limit";
 
 /** Maximum container nesting: 128 open arrays/objects at once is allowed, 129 is not. */
 export const MAX_DEPTH = 128;

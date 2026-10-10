@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_INPUT_BYTES } from "../size-limit";
+import { MAX_INPUT_BYTES } from "./size-limit";
 import {
   MAX_DEPTH,
   MAX_OUTPUT_LENGTH,

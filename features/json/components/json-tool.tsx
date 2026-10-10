@@ -1,32 +1,27 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
-import {
-  formatJsonEncoded,
-  minifyJsonEncoded,
-  type JsonFailure,
-  type EncodedResult,
-} from "../../lib/json";
-import { MAX_INPUT_BYTES } from "../../lib/size-limit";
+import { formatJsonEncoded, minifyJsonEncoded, type JsonFailure, type EncodedResult } from "../lib";
+import { MAX_INPUT_BYTES } from "../lib/size-limit";
 
 type CopyStatus = "idle" | "copied" | "failed";
 
 function failureTitle(failure: JsonFailure): string {
   switch (failure.kind) {
     case "too-large":
-      return "Input is too large";
+      return "入力が大きすぎます";
     case "too-deep":
-      return "Input is nested too deeply";
+      return "入力のネストが深すぎます";
     case "output-too-large":
-      return "Formatted output would be too large";
+      return "整形後の出力が大きくなりすぎます";
     case "syntax":
-      return "Invalid JSON";
+      return "JSON が正しくありません";
   }
 }
 
 function failureLocation(failure: JsonFailure): string | null {
   if (failure.kind === "syntax" || failure.kind === "too-deep") {
-    return `Line ${failure.line}, column ${failure.column}`;
+    return `${failure.line} 行目、${failure.column} 列目`;
   }
   return null;
 }
@@ -48,10 +43,10 @@ export function JsonTool() {
   const [result, setResult] = useState<EncodedResult | null>(null);
   const [decodeEncoded, setDecodeEncoded] = useState(true);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
-  // Bumped whenever the output changes and for every copy attempt, so a slow clipboard write can
-  // report neither on stale output nor over a newer attempt on the same output.
+  // 出力が変わるたび、およびコピーを試みるたびに増やす。これにより、遅れて完了した
+  // クリップボード書き込みが、古い出力や同じ出力への新しい試行の結果を上書きしない。
   const copySequence = useRef(0);
-  // False in the server render and during hydration, true once the client has taken over.
+  // サーバーレンダリング中とハイドレーション中は false、クライアントに切り替わると true。
   const hydrated = useSyncExternalStore(subscribeToNothing, isClient, isServer);
 
   const output = result?.ok === true ? result.output : "";
@@ -87,7 +82,7 @@ export function JsonTool() {
     }
     copySequence.current += 1;
     const attempt = copySequence.current;
-    // A new attempt supersedes the previous one's status until it settles itself.
+    // 新しい試行は、自身が完了するまで前の試行の状態を置き換える。
     setCopyStatus("idle");
     let status: CopyStatus = "failed";
     try {
@@ -108,7 +103,7 @@ export function JsonTool() {
   return (
     <div className="json-tool" data-hydrated={hydrated ? "true" : "false"}>
       <div className="field">
-        <label htmlFor="json-input">Input JSON</label>
+        <label htmlFor="json-input">入力 JSON</label>
         <textarea
           id="json-input"
           className="code-area"
@@ -122,8 +117,8 @@ export function JsonTool() {
           rows={12}
         />
         <p id="json-input-hint" className="hint">
-          Up to {MAX_INPUT_BYTES.toLocaleString("en-US")} bytes (1 MiB, UTF-8). Processed in this
-          browser tab only. Your input is never changed.
+          最大 {MAX_INPUT_BYTES.toLocaleString("en-US")} バイト (1 MiB、UTF-8)。処理はこの
+          ブラウザタブ内だけで行われます。入力は変更されません。
         </p>
       </div>
 
@@ -134,53 +129,53 @@ export function JsonTool() {
             checked={decodeEncoded}
             onChange={(event) => handleDecodeToggle(event.target.checked)}
           />{" "}
-          Decode a JSON string that contains an object or array (1 layer)
+          オブジェクトまたは配列を含む JSON 文字列をデコードする (1 階層)
         </label>
       </div>
 
-      <div className="actions" role="group" aria-label="JSON actions">
+      <div className="actions" role="group" aria-label="JSON の操作">
         <button
           type="button"
           onClick={() => invalidate(formatJsonEncoded(input, { decodeEncoded }))}
           disabled={!hasInput}
         >
-          Format (2 spaces)
+          整形 (2 スペース)
         </button>
         <button
           type="button"
           onClick={() => invalidate(minifyJsonEncoded(input, { decodeEncoded }))}
           disabled={!hasInput}
         >
-          Minify
+          最小化
         </button>
         <button type="button" onClick={() => void handleCopy()} disabled={!hasOutput}>
-          Copy output
+          出力をコピー
         </button>
         <button type="button" onClick={handleClear} disabled={!hasInput}>
-          Clear
+          クリア
         </button>
       </div>
 
       <p className="status" role="status" aria-live="polite">
-        {copyStatus === "copied" ? "Output copied to the clipboard." : ""}
+        {copyStatus === "copied" ? "出力をクリップボードにコピーしました。" : ""}
         {copyStatus === "idle" && result?.ok === true
           ? result.mode === "pretty"
-            ? "Formatted with 2 spaces."
-            : "Minified."
+            ? "2 スペースで整形しました。"
+            : "最小化しました。"
           : ""}
       </p>
 
       {result?.decoded === true && result.ok ? (
         <p className="message" role="status">
-          Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded
-          text, not your original input.
+          JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、
+          デコード後のテキストを指します。
         </p>
       ) : null}
 
       {copyStatus === "failed" ? (
         <p className="message message-error" role="alert">
-          Could not copy: the clipboard is unavailable or the browser refused. Select the output and
-          copy it manually.
+          コピーできませんでした: クリップボードが利用できないか、ブラウザに拒否されました。
+          出力を選択して手動でコピーしてください。
         </p>
       ) : null}
 
@@ -191,11 +186,11 @@ export function JsonTool() {
           <p>{failure.message}</p>
           {result?.decoded === true ? (
             <p>
-              Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded
-              text, not your original input.
+              JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、
+              デコード後のテキストを指します。
             </p>
           ) : null}
-          <p>Your input was left unchanged.</p>
+          <p>入力は変更されていません。</p>
         </div>
       ) : null}
 
@@ -203,15 +198,15 @@ export function JsonTool() {
         <div className="message message-warning" role="status">
           <strong>
             {warnings.length === 1
-              ? "1 duplicate key warning"
-              : `${warnings.length} duplicate key warnings`}
+              ? "重複キーの警告が 1 件あります"
+              : `重複キーの警告が ${warnings.length} 件あります`}
           </strong>
-          <p>All keys are kept in the output, in their original order.</p>
+          <p>すべてのキーは元の順序のまま出力に残ります。</p>
           <ul>
             {warnings.map((warning) => (
               <li key={warning.offset}>
-                Line {warning.line}, column {warning.column}
-                {result?.decoded === true ? " (decoded text)" : ""}: {warning.message}
+                {warning.line} 行目、{warning.column} 列目
+                {result?.decoded === true ? " (デコード後のテキスト)" : ""}: {warning.message}
               </li>
             ))}
           </ul>
@@ -219,7 +214,7 @@ export function JsonTool() {
       ) : null}
 
       <div className="field">
-        <label htmlFor="json-output">Output (read-only)</label>
+        <label htmlFor="json-output">出力 (読み取り専用)</label>
         <textarea
           id="json-output"
           className="code-area"

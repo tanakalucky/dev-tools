@@ -1,4 +1,4 @@
-import { checkSizeLimit } from "../size-limit";
+import { checkSizeLimit } from "./size-limit";
 import { formatJson, minifyJson, validateJson } from "./index";
 import { tokenize } from "./tokenizer";
 import type { JsonResult, JsonValidation } from "./types";

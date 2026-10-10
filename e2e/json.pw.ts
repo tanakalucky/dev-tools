@@ -1,34 +1,41 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const COPIED_TEXT = "Output copied to the clipboard.";
-const COPY_FAILED_TEXT = "Could not copy: the clipboard is unavailable or the browser refused.";
+const COPIED_TEXT = "出力をクリップボードにコピーしました。";
+const COPY_FAILED_TEXT =
+  "コピーできませんでした: クリップボードが利用できないか、ブラウザに拒否されました。";
+const FORMATTED_TEXT = "2 スペースで整形しました。";
+const MINIFIED_TEXT = "最小化しました。";
+const DECODE_NOTICE =
+  "JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、デコード後のテキストを指します。";
+const DECODE_LABEL = "オブジェクトまたは配列を含む JSON 文字列をデコードする (1 階層)";
 
 type ClipboardStub = {
   calls: string[];
-  // One entry per writeText call, in call order, so each pending write is settled on its own.
+  // writeText の呼び出しごとに 1 件、呼び出し順に持つ。保留中の書き込みを個別に完了させるため。
   pending: { resolve: () => void; reject: () => void }[];
 };
 
 function controls(page: Page) {
   return {
-    input: page.getByRole("textbox", { name: "Input JSON", exact: true }),
-    output: page.getByRole("textbox", { name: "Output (read-only)", exact: true }),
-    format: page.getByRole("button", { name: "Format (2 spaces)", exact: true }),
-    minify: page.getByRole("button", { name: "Minify", exact: true }),
-    copy: page.getByRole("button", { name: "Copy output", exact: true }),
-    clear: page.getByRole("button", { name: "Clear", exact: true }),
+    input: page.getByRole("textbox", { name: "入力 JSON", exact: true }),
+    output: page.getByRole("textbox", { name: "出力 (読み取り専用)", exact: true }),
+    format: page.getByRole("button", { name: "整形 (2 スペース)", exact: true }),
+    minify: page.getByRole("button", { name: "最小化", exact: true }),
+    copy: page.getByRole("button", { name: "出力をコピー", exact: true }),
+    clear: page.getByRole("button", { name: "クリア", exact: true }),
   };
 }
 
-// The page is server-rendered, so typing before hydration would be lost. The client component
-// sets data-hydrated="true" once React has taken over. Waiting for it reads the page only: it
-// never types, clicks or clears, so it cannot hide state that survived a reload.
+// ページはサーバーレンダリングされるため、ハイドレーション前の入力は失われる。
+// React が引き継ぐとクライアントコンポーネントが data-hydrated="true" を設定する。
+// その待機はページを読むだけで、入力・クリック・クリアはしないので、
+// リロード後に残った状態を隠すことはない。
 async function waitForHydration(page: Page) {
   await expect(page.locator(".json-tool")).toHaveAttribute("data-hydrated", "true");
 }
 
-// Two animation frames give any pending React update time to render, so a stale status that
-// wrongly came back would be on screen before the next assertion. Reads nothing, changes nothing.
+// 2 フレーム待つことで保留中の React 更新が描画され、誤って戻った古い状態が
+// 次の検証の前に画面へ出る。何も読まず、何も変更しない。
 async function flushRender(page: Page) {
   await page.evaluate(
     () =>
@@ -44,10 +51,9 @@ async function openJsonTool(page: Page) {
   return controls(page);
 }
 
-// Replaces navigator.clipboard with a stub whose writeText stays pending until the test settles
-// it. Every call gets its own deferred promise, so several writes can be pending at once and be
-// settled in any order. Nothing here touches the real OS clipboard and no clipboard permission
-// is granted.
+// navigator.clipboard を、テストが完了させるまで writeText が保留されるスタブに置き換える。
+// 呼び出しごとに独立した遅延 Promise を持つため、複数の書き込みを同時に保留し、
+// 任意の順序で完了できる。実際の OS クリップボードには触れず、権限も付与しない。
 async function stubDeferredClipboard(page: Page) {
   await page.addInitScript(() => {
     const stub: ClipboardStub = { calls: [], pending: [] };
@@ -73,8 +79,8 @@ function clipboardCalls(page: Page) {
   );
 }
 
-// Settles the writeText call with the given zero-based call index (the first call by default).
-// An index with no recorded call throws, so a test cannot settle a write that never happened.
+// 指定した 0 始まりの呼び出し番号 (既定は最初の呼び出し) の writeText を完了させる。
+// 記録のない番号は例外になるため、発生していない書き込みを完了させることはできない。
 function settleClipboard(page: Page, how: "resolve" | "reject", call = 0) {
   return page.evaluate(
     ({ method, index }) => {
@@ -89,7 +95,7 @@ function settleClipboard(page: Page, how: "resolve" | "reject", call = 0) {
   );
 }
 
-test("home links to the JSON tool, which is labelled and keyboard-operable on a narrow viewport", async ({
+test("ホームから JSON ツールへ移動でき、狭い画面でもラベルが付きキーボードで操作できる", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 640 });
@@ -98,28 +104,28 @@ test("home links to the JSON tool, which is labelled and keyboard-operable on a 
     page.getByRole("heading", { level: 1, name: "dev-tools", exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "JSON formatter", exact: true }).click();
+  await page.getByRole("link", { name: "JSON フォーマッター", exact: true }).click();
   await expect(page).toHaveURL(/\/json$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "JSON formatter", exact: true }),
+    page.getByRole("heading", { level: 1, name: "JSON フォーマッター", exact: true }),
   ).toBeVisible();
   await waitForHydration(page);
 
   const { input, output, format, minify, copy, clear } = controls(page);
-  await expect(page.getByRole("group", { name: "JSON actions", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "JSON の操作", exact: true })).toBeVisible();
   await expect(output).toHaveAttribute("readonly", "");
   for (const button of [format, minify, copy, clear]) {
     await expect(button).toBeVisible();
     await expect(button).toBeDisabled();
   }
 
-  // Keyboard only from here: type, then reach the buttons with Tab and activate them.
+  // ここからはキーボードのみ: 入力し、Tab でボタンへ移動して操作する。
   await input.focus();
   await page.keyboard.type("[1,2]");
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("checkbox", {
-      name: "Decode a JSON string that contains an object or array (1 layer)",
+      name: DECODE_LABEL,
       exact: true,
     }),
   ).toBeFocused();
@@ -135,7 +141,7 @@ test("home links to the JSON tool, which is labelled and keyboard-operable on a 
   await expect(input).toHaveValue("[1,2]");
 });
 
-test("format indents with two spaces and keeps a large integer exactly", async ({ page }) => {
+test("整形は 2 スペースでインデントし、大きな整数を正確に保つ", async ({ page }) => {
   const { input, output, format } = await openJsonTool(page);
   const source = '{"n":9007199254740993}';
 
@@ -144,10 +150,12 @@ test("format indents with two spaces and keeps a large integer exactly", async (
 
   await expect(output).toHaveValue('{\n  "n": 9007199254740993\n}');
   await expect(input).toHaveValue(source);
-  await expect(page.getByText("Formatted with 2 spaces.", { exact: true })).toBeVisible();
+  await expect(page.getByText(FORMATTED_TEXT, { exact: true })).toBeVisible();
 });
 
-test("minify keeps raw escapes, and markup inside strings stays inert text", async ({ page }) => {
+test("最小化は生のエスケープを保ち、文字列内のマークアップは無害なテキストのままになる", async ({
+  page,
+}) => {
   const dialogs: string[] = [];
   page.on("dialog", (dialog) => {
     dialogs.push(dialog.message());
@@ -161,7 +169,7 @@ test("minify keeps raw escapes, and markup inside strings stays inert text", asy
   await input.fill(source);
   await minify.click();
   await expect(output).toHaveValue(minified);
-  await expect(page.getByText("Minified.", { exact: true })).toBeVisible();
+  await expect(page.getByText(MINIFIED_TEXT, { exact: true })).toBeVisible();
 
   await format.click();
   await expect(output).toHaveValue(/^\{\n {2}"img": "<img src=x /);
@@ -173,62 +181,60 @@ test("minify keeps raw escapes, and markup inside strings stays inert text", asy
   expect(dialogs).toEqual([]);
 });
 
-test("invalid JSON reports line and column, keeps the input, and stale state is discarded", async ({
-  page,
-}) => {
+test("不正な JSON は行と列を報告し、入力を保ち、古い状態を破棄する", async ({ page }) => {
   const { input, output, format, clear } = await openJsonTool(page);
   const broken = '{\n  "a" 1\n}';
   const alert = page.getByRole("alert");
 
   await input.fill(broken);
   await format.click();
-  await expect(alert).toContainText("Invalid JSON");
-  await expect(alert).toContainText("(Line 2, column 7)");
-  await expect(alert).toContainText("Your input was left unchanged.");
+  await expect(alert).toContainText("JSON が正しくありません");
+  await expect(alert).toContainText("(2 行目、7 列目)");
+  await expect(alert).toContainText("入力は変更されていません。");
   await expect(input).toHaveValue(broken);
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(output).toHaveValue("");
 
-  // Editing drops the stale error.
+  // 編集すると古いエラーが消える。
   await input.press("End");
   await input.pressSequentially(" ");
   await expect(alert).toHaveCount(0);
   await expect(input).toHaveAttribute("aria-invalid", "false");
 
-  // Editing also drops stale output.
+  // 編集すると古い出力も消える。
   await input.fill('{"a":1}');
   await format.click();
   await expect(output).toHaveValue('{\n  "a": 1\n}');
   await input.pressSequentially(" ");
   await expect(output).toHaveValue("");
-  await expect(page.getByText("Formatted with 2 spaces.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(FORMATTED_TEXT, { exact: true })).toHaveCount(0);
 
   await format.click();
   await expect(output).toHaveValue('{\n  "a": 1\n}');
   await clear.click();
   await expect(input).toHaveValue("");
   await expect(output).toHaveValue("");
-  await expect(page.getByText("Formatted with 2 spaces.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(FORMATTED_TEXT, { exact: true })).toHaveCount(0);
   await expect(alert).toHaveCount(0);
   await expect(format).toBeDisabled();
   await expect(clear).toBeDisabled();
 });
 
-test("duplicate keys produce a warning and both keys stay in the output", async ({ page }) => {
+test("重複キーは警告になり、両方のキーが出力に残る", async ({ page }) => {
   const { input, output, format } = await openJsonTool(page);
 
   await input.fill('{"a":1,"a":2}');
   await format.click();
 
   await expect(output).toHaveValue('{\n  "a": 1,\n  "a": 2\n}');
-  await expect(page.getByText("1 duplicate key warning", { exact: true })).toBeVisible();
+  await expect(page.getByText("重複キーの警告が 1 件あります", { exact: true })).toBeVisible();
   await expect(page.getByRole("listitem")).toHaveText([
-    'Line 1, column 8: Duplicate key "a": the same key first appears at line 1, column 2',
+    '1 行目、8 列目: Duplicate key "a": the same key first appears at line 1, column 2',
   ]);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("copy (stubbed clipboard contract): success appears only after the write resolves", async ({
+test("コピー (クリップボードのスタブ契約): 成功表示は書き込みが解決した後にだけ出る", async ({
   page,
 }) => {
   await stubDeferredClipboard(page);
@@ -238,17 +244,17 @@ test("copy (stubbed clipboard contract): success appears only after the write re
   await minify.click();
   await copy.click();
 
-  // The stub received the visible output, but the write is still pending: no success claim yet.
+  // スタブは表示中の出力を受け取ったが、書き込みはまだ保留中なので成功表示はまだ出ない。
   await expect.poll(() => clipboardCalls(page)).toEqual(["[1,2]"]);
   await expect(page.getByText(COPIED_TEXT)).toHaveCount(0);
-  await expect(page.getByText("Minified.", { exact: true })).toBeVisible();
+  await expect(page.getByText(MINIFIED_TEXT, { exact: true })).toBeVisible();
 
   await settleClipboard(page, "resolve");
   await expect(page.getByText(COPIED_TEXT, { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("copy (stubbed clipboard contract): a rejected write or a missing API shows an honest error", async ({
+test("コピー (クリップボードのスタブ契約): 書き込み拒否または API 欠如では正直にエラーを表示する", async ({
   page,
   browser,
 }) => {
@@ -262,7 +268,7 @@ test("copy (stubbed clipboard contract): a rejected write or a missing API shows
   await expect(page.getByRole("alert")).toContainText(COPY_FAILED_TEXT);
   await expect(page.getByText(COPIED_TEXT)).toHaveCount(0);
 
-  // Second isolated context where the Clipboard API does not exist at all.
+  // Clipboard API がまったく存在しない、2 つ目の分離コンテキスト。
   const context = await browser.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const bare = await context.newPage();
@@ -399,7 +405,7 @@ test("copy (stubbed clipboard contract): reformat and minify while a write is pe
   await settleClipboard(page, "resolve", 0);
   await flushRender(page);
   await expect(page.getByText(COPIED_TEXT)).toHaveCount(0);
-  await expect(page.getByText("Formatted with 2 spaces.", { exact: true })).toBeVisible();
+  await expect(page.getByText(FORMATTED_TEXT, { exact: true })).toBeVisible();
 
   // Copy the formatted output (call 1), minify while it is pending, then let it fail late.
   await copy.click();
@@ -410,7 +416,7 @@ test("copy (stubbed clipboard contract): reformat and minify while a write is pe
   await flushRender(page);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByText(COPIED_TEXT)).toHaveCount(0);
-  await expect(page.getByText("Minified.", { exact: true })).toBeVisible();
+  await expect(page.getByText(MINIFIED_TEXT, { exact: true })).toBeVisible();
 
   // A copy of the current output (call 2) is the only one allowed to report.
   await copy.click();
@@ -421,11 +427,7 @@ test("copy (stubbed clipboard contract): reformat and minify while a write is pe
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-const DECODE_NOTICE =
-  "Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded text, not your original input.";
-const DECODE_LABEL = "Decode a JSON string that contains an object or array (1 layer)";
-
-test("encoded JSON object is decoded with a visible notice and the input is untouched", async ({
+test("エンコードされた JSON オブジェクトは通知付きでデコードされ、入力は変更されない", async ({
   page,
 }) => {
   const { input, output, format } = await openJsonTool(page);
@@ -442,7 +444,7 @@ test("encoded JSON object is decoded with a visible notice and the input is unto
   await expect(input).toHaveValue(source);
 });
 
-test("an ordinary JSON string stays a string with no decode notice", async ({ page }) => {
+test("通常の JSON 文字列は文字列のままで、デコード通知は出ない", async ({ page }) => {
   const { input, output, format } = await openJsonTool(page);
 
   await input.fill('"hello"');
@@ -452,7 +454,7 @@ test("an ordinary JSON string stays a string with no decode notice", async ({ pa
   await expect(page.getByText(DECODE_NOTICE, { exact: true })).toHaveCount(0);
 });
 
-test("a malformed encoded container reports a decoded-text error and keeps the input", async ({
+test("不正なエンコード済みコンテナはデコード後テキストのエラーを報告し、入力を保つ", async ({
   page,
 }) => {
   const { input, output, format } = await openJsonTool(page);
@@ -462,16 +464,14 @@ test("a malformed encoded container reports a decoded-text error and keeps the i
   await input.fill(source);
   await format.click();
 
-  await expect(alert).toContainText("Invalid JSON");
-  await expect(alert).toContainText("(Line 2, column 5)");
-  await expect(alert).toContainText("refer to the decoded text");
+  await expect(alert).toContainText("JSON が正しくありません");
+  await expect(alert).toContainText("(2 行目、5 列目)");
+  await expect(alert).toContainText("デコード後のテキストを指します");
   await expect(output).toHaveValue("");
   await expect(input).toHaveValue(source);
 });
 
-test("unchecking the decode option and editing input clear stale decode state", async ({
-  page,
-}) => {
+test("デコードオプションを外すか入力を編集すると、古いデコード状態が消える", async ({ page }) => {
   const { input, output, format } = await openJsonTool(page);
   const option = page.getByRole("checkbox", { name: DECODE_LABEL, exact: true });
   const source = String.raw`"{\"a\":1}"`;
@@ -501,7 +501,7 @@ test("unchecking the decode option and editing input clear stale decode state", 
   await expect(output).toHaveValue("");
 });
 
-test("privacy: entered text is not sent, stored, put in the URL, or kept across reload", async ({
+test("プライバシー: 入力テキストは送信・保存・URL への付与・リロード後の保持がされない", async ({
   page,
 }) => {
   const sentinel = "pw-sentinel-7f3c9e1a-synthetic";
@@ -515,7 +515,7 @@ test("privacy: entered text is not sent, stored, put in the URL, or kept across 
   const { input, output, format, minify } = await openJsonTool(page);
   const bootRequests = outgoing.length;
 
-  // The sentinel only enters the page after boot, so anything carrying it was caused by the tool.
+  // 目印文字列は起動後にだけページへ入るので、それを含む通信はツールが起こしたものだ。
   await input.fill(`{ "secret": "${sentinel}" }`);
   await format.click();
   await expect(output).toHaveValue(`{\n  "secret": "${sentinel}"\n}`);
@@ -533,8 +533,8 @@ test("privacy: entered text is not sent, stored, put in the URL, or kept across 
   expect(persisted.cookie).not.toContain(sentinel);
   expect(persisted.url).not.toContain(sentinel);
 
-  // Nothing is typed, clicked or cleared between the reload and these assertions, so they see
-  // exactly what the reloaded page restored on its own.
+  // リロードからこれらの検証までの間に入力・クリック・クリアはしないので、
+  // リロード後のページが自力で復元した内容だけが検証される。
   await page.reload();
   await waitForHydration(page);
   await expect(input).toHaveValue("");

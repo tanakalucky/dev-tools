@@ -3,12 +3,12 @@ import "./globals.css";
 
 export const metadata = {
   title: "dev-tools",
-  description: "Browser-only developer utilities.",
+  description: "ブラウザだけで動く開発者向けユーティリティ。",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body>{children}</body>
     </html>
   );

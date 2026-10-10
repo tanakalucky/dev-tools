@@ -1,0 +1,6 @@
+{
+  "jsPlugins": ["./index.js"],
+  "rules": {
+    "boundaries/import-boundary": ["error", { "root": "fixtures" }]
+  }
+}

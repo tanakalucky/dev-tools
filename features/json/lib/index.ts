@@ -1,4 +1,4 @@
-import { checkSizeLimit } from "../size-limit";
+import { checkSizeLimit } from "./size-limit";
 import { findDuplicateKeys } from "./duplicate-keys";
 import { checkGrammar } from "./grammar";
 import { printMinified } from "./minify";

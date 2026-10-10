@@ -5,11 +5,11 @@ Status: implemented in code, **not yet accepted**. See [Still pending](#still-pe
 ## Route
 
 - Home / tool list: `/` (`app/page.tsx`)
-- JSON tool: `/json` (`app/json/page.tsx`, client component `app/json/json-tool.tsx`)
+- JSON tool: `/json` (`app/json/page.tsx`, client component `features/json/components/json-tool.tsx`)
 
 ## Pure API
 
-Public entry point: `lib/json/index.ts`. No DOM, no network, no storage. None of these functions throw on bad input; they return a result object.
+Public entry point: `features/json/lib/index.ts`. No DOM, no network, no storage. None of these functions throw on bad input; they return a result object.
 
 | Function               | Success result                                           |
 | ---------------------- | -------------------------------------------------------- |
@@ -28,7 +28,7 @@ Failure results are `{ ok: false, kind, message, source, ... }` with one of thes
 | `too-deep`         | `offset`, `line`, `column`, `limit` | Nesting is over the nesting cap.                |
 | `output-too-large` | `limit`                             | Pretty output would exceed the output bound.    |
 
-Also exported: the constants `MAX_DEPTH` and `MAX_OUTPUT_LENGTH`, and the result types. The input cap constant `MAX_INPUT_BYTES` lives in `lib/size-limit.ts`.
+Also exported: the constants `MAX_DEPTH` and `MAX_OUTPUT_LENGTH`, and the result types. The input cap constant `MAX_INPUT_BYTES` lives in `features/json/lib/size-limit.ts`.
 
 Processing order: size check, tokenize, grammar check, duplicate-key scan, then printing.
 
@@ -56,7 +56,7 @@ A valid JSON string is formatted as that same string (`"hello"`, `"123"`, `"true
 
 ## Encoded JSON containers
 
-Exported: `formatJsonEncoded`, `minifyJsonEncoded`, `validateJsonEncoded`, `decodeEncodedContainer`, `MAX_WRAPPER_LAYERS` (= 1), in `lib/json/encoded.ts`. Existing `formatJson`, `minifyJson`, `validateJson` are unchanged.
+Exported: `formatJsonEncoded`, `minifyJsonEncoded`, `validateJsonEncoded`, `decodeEncodedContainer`, `MAX_WRAPPER_LAYERS` (= 1), in `features/json/lib/encoded.ts`. Existing `formatJson`, `minifyJson`, `validateJson` are unchanged.
 
 - Detection: after trimming JSON whitespace, the whole input is exactly one valid JSON string token, and the decoded text, after trimming JSON whitespace, begins with `{` or `[`. Example: `"{\"a\":1}"` formats as `{ "a": 1 }`. Only the outer string token is passed to `JSON.parse`; the inner text goes through the normal token-preserving path, so large numbers, key order, duplicate keys and inner escapes are preserved.
 - Exactly one layer is removed. A double-encoded string, a normal string, or a scalar is not decoded and behaves as before.
@@ -71,7 +71,7 @@ A `syntax` or `too-deep` failure reports the UTF-16 `offset` plus `line` and `co
 
 ### Line and column convention
 
-Defined in `lib/json/position.ts`:
+Defined in `features/json/lib/position.ts`:
 
 - Lines and columns are **1-based**.
 - Columns count UTF-16 code units, so a character outside the Basic Multilingual Plane (one surrogate pair) advances the column by two. A tab counts as one column.
@@ -88,11 +88,11 @@ Duplicate keys are valid JSON here: they produce warnings, never failures, and t
 
 ## Limits
 
-| Limit        | Value                         | Constant            | Defined in            | Boundary                           |
-| ------------ | ----------------------------- | ------------------- | --------------------- | ---------------------------------- |
-| Input cap    | 1,048,576 UTF-8 bytes (1 MiB) | `MAX_INPUT_BYTES`   | `lib/size-limit.ts:2` | Exactly 1,048,576 bytes is allowed |
-| Nesting cap  | 128 containers                | `MAX_DEPTH`         | `lib/json/types.ts:2` | Depth 128 allowed, 129 rejected    |
-| Output bound | 8,388,608 UTF-16 code units   | `MAX_OUTPUT_LENGTH` | `lib/json/types.ts:8` | Exactly at the bound is allowed    |
+| Limit        | Value                         | Constant            | Defined in                          | Boundary                           |
+| ------------ | ----------------------------- | ------------------- | ----------------------------------- | ---------------------------------- |
+| Input cap    | 1,048,576 UTF-8 bytes (1 MiB) | `MAX_INPUT_BYTES`   | `features/json/lib/size-limit.ts:2` | Exactly 1,048,576 bytes is allowed |
+| Nesting cap  | 128 containers                | `MAX_DEPTH`         | `features/json/lib/types.ts:2`      | Depth 128 allowed, 129 rejected    |
+| Output bound | 8,388,608 UTF-16 code units   | `MAX_OUTPUT_LENGTH` | `features/json/lib/types.ts:8`      | Exactly at the bound is allowed    |
 
 - The input cap is measured in UTF-8 bytes, not characters, and is checked before any parsing.
 - The nesting cap counts arrays and objects together.
@@ -154,4 +154,4 @@ None of the following has been done. This spec makes no claim of a reviewed or d
 - **Independent reviews: 1 of 3 rounds consumed.** Round 1 was explicitly adopted into the plugin review ledger as historical_unverified, with no synthetic clean reviews and no approval. Its P1 findings remain unresolved pending independent review round 2, which has not started. Not approved. The requested project `.claude` files remain blocked/pending; the plugin did not implement them.
 - **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) has run only on the earlier commit above; later commits count only once observed on an exact commit. The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
 - **Escaped/terminal JSON handling: conservative subset implemented** (see [Encoded JSON containers](#encoded-json-containers)). No exact terminal sample was provided, so other formats remain unsupported. The new Playwright tests await CI (not executed in a browser).
-- **Cleanup of coexisting partial core modules: STILL PENDING.** `lib/json/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
+- **Cleanup of coexisting partial core modules: STILL PENDING.** `features/json/lib/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
