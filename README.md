@@ -4,15 +4,18 @@ Browser-only developer utilities. Tool input is processed locally in the browser
 
 ## Status
 
-Early work in progress. **Not deployed, not reviewed, and not yet checked in a real browser** (browser tests are written but have no recorded passing run).
+Work in progress. **Not deployed, not approved, and not yet checked in a real browser.**
 
-- Implemented: a JSON formatter at the `/json` route (format with 2 spaces, minify, validate, duplicate-key warnings, copy, clear). See [docs/tools/json/spec.md](docs/tools/json/spec.md) for what it does and what is still pending.
-- Planned, not implemented: unwrapping JSON that is encoded inside a JSON string, and cleanup of pasted terminal/shell output.
-- Planned, not done: deployment. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers; the intended production URL `dev-tools.tanakalucky.com` is not live.
+- Implemented: a JSON formatter at `/` and `/json` (format with 2 spaces, minify, validate, duplicate-key warnings, copy, clear). See [docs/tools/json/spec.md](docs/tools/json/spec.md).
+- Last verified: 133 unit tests pass; typecheck, oxlint, oxfmt check and the production build exited 0. Playwright discovers 13 E2E cases; 0 browser tests have been executed because the dev server cannot start in the current environment (`os.networkInterfaces` error inside `@cloudflare/vite-plugin`). A separate warning about an unresolved optional peer (`react-server-dom-webpack/static.edge`) is unrelated to that; `@vitejs/plugin-rsc` vendors its own copy, so the package is intentionally not added.
+- CI: `.github/workflows/ci.yml` is written (unit tests, typecheck, lint, format check, build, then Playwright E2E on Node 24, read-only permissions, no secrets). It has **not yet been run**; it only counts once published and observed on an exact commit.
+- Review: 1 of 3 rounds consumed (external); its P1 findings are being addressed and are unresolved until verified. Round 2 is pending.
+- Open requirement, awaiting a sample: handling of escaped/terminal-pasted JSON. Ordinary JSON strings remain strings.
+- Not done, not authorized in this phase: deployment and preview. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers; nothing is live.
 
 ## Setup
 
-Requires Node.js 22.12 or newer.
+Declares Node.js 22.12 or newer (declared, not tested as a version matrix).
 
 ```sh
 npm install

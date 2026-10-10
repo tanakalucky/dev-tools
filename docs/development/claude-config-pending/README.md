@@ -1,22 +1,16 @@
-# Pending Claude configuration (not installed)
+# Pending Claude configuration (unfinished, blocked)
 
-These files are the intended contents of `.claude/agents/` and `.claude/rules/`.
+Status: repo-specific Claude configuration is **unfinished and blocked**. Nothing here is installed, copied into `.claude/`, authoritative, or delivered.
 
-They are **not installed**. The Phase 1 session was not permitted to write under `.claude/`, and the lead did not work around that. In this directory the files are inert: nothing loads agents or rules from here.
+The files in this directory are inert earlier drafts. Nothing loads agents or rules from here. Writing under `.claude/` was not permitted in earlier phases and has not been worked around.
 
-## To install
+## What actually runs
 
-Someone with authority over the repository configuration copies them into place:
+The workflow plugin is installed at user scope. The actual workflow is: an Opus main lead, a separate Sonnet implementer, and separate read-only Sonnet reviewers for security, test adequacy and design/rules/docs. See [CLAUDE.md](../../../CLAUDE.md).
 
-| From                                                 | To                |
-| ---------------------------------------------------- | ----------------- |
-| `docs/development/claude-config-pending/agents/*.md` | `.claude/agents/` |
-| `docs/development/claude-config-pending/rules/*.md`  | `.claude/rules/`  |
+## Notes on the drafts
 
-Then delete this directory, so there is one copy and it cannot drift.
-
-## Why this blocks Phase 2
-
-The workflow in `docs/development/workflow.md` requires the implementer and the three reviewers to be native agents with the tool lists defined here. Until these definitions are installed, those agent types do not exist and implementation must not start.
-
-`CLAUDE.md` refers to the installed locations, not to this directory.
+- The drafts may be stale and have not been reconciled with the user-scope plugin.
+- `technology-researcher` is not a mandatory step. The lead chooses research only when an uncertainty blocks a decision (cap: 3 candidates, 5 official pages, 5 minutes).
+- Implementation is not blocked by this directory: the workflow runs through the user-scope plugin.
+- Any future repo-specific setup needs an explicit decision by the repository owner.

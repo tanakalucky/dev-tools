@@ -1,6 +1,6 @@
 # JSON formatter spec
 
-Status: implemented in code, **not yet accepted**. See [Still pending](#still-pending). Review rounds used = 0.
+Status: implemented in code, **not yet accepted**. See [Still pending](#still-pending). Review rounds consumed: 1 of 3 (external); its P1 findings are being addressed and are unresolved until verified; round 2 is pending.
 
 ## Route
 
@@ -119,7 +119,7 @@ The page has a labelled input textarea ("Input JSON") and a labelled read-only o
 
 `npm run test:e2e` runs the Playwright tests in `e2e/json.pw.ts` against `npm run dev` on `127.0.0.1:43173`, in Chromium only. Prerequisite: a Playwright Chromium build (`npx playwright install chromium`). The `.pw.ts` suffix keeps these files out of the vitest run.
 
-The eight tests use synthetic input only and cover:
+The 13 tests use synthetic input only and cover:
 
 - Home page link to `/json`, the accessible names of the fields and buttons, and keyboard-only use at a 360x640 viewport.
 - Format with 2 spaces keeping `9007199254740993` exactly, with the input unchanged.
@@ -127,16 +127,22 @@ The eight tests use synthetic input only and cover:
 - A syntax error with line and column and the input preserved; editing and Clear discarding stale output and errors.
 - Duplicate-key warnings with both keys kept in the output.
 - Copy against a **stubbed** `navigator.clipboard`: success shown only after the write resolves; a rejected write or a missing API shows the failure message and no success claim.
+- Copy ordering with deferred clipboard stubs: two pending writes of one output settling in either order (the newest request owns the status), and an input edit, Clear, reformat or minify while a write is pending discarding that write's status.
+- Hydration readiness: tests wait for `data-hydrated="true"` on the tool container, which reads the page only and never clears input, before typing and before the post-reload persistence assertions.
 - Privacy: a sentinel typed after page load does not appear in any request, WebSocket frame, `localStorage`, `sessionStorage`, cookie or the URL, and is gone after reload.
 
-**No passing run is recorded.** In the environment where the tests were written, `npm run test:e2e` stopped before any test started: the dev server exited with `uv_interface_addresses returned Unknown system error 1` (raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`). The tests therefore still need a first run on a machine where `npm run dev` starts.
+**No passing run is recorded; 0 browser tests have been executed.** Playwright discovers 13 cases (`playwright test --list`). In the environment where the tests were written, the dev server cannot start: `uv_interface_addresses returned Unknown system error 1` (raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`). The tests therefore still need a first run on a machine where `npm run dev` starts.
+
+Separate and distinct: the build warns that `react-server-dom-webpack/static.edge` (and its `package.json`) cannot be resolved; plugin-rsc 0.5.36 marks it an optional peer. That warning is not the browser-startup error.
+
+Last verified: 133 unit tests passing; typecheck, oxlint, oxfmt check and the production build exited 0. The Node minimum (22.12) is declared, not tested as a version matrix.
 
 ## Still pending
 
 None of the following has been done. This spec makes no claim of a reviewed or deployed MVP.
 
 - **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)) but have no recorded passing run. Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
-- **Independent Claude reviews: STILL PENDING.** Review rounds used = 0.
-- **Deployment: STILL PENDING.** Nothing is deployed.
-- **Optional unwrap: STILL PENDING.** Unwrapping JSON encoded inside a JSON string, and terminal/shell paste cleanup, are deferred as described above.
+- **Independent reviews: 1 of 3 rounds consumed.** Round 1 was one independent three-perspective review run externally; recording it in the workflow plugin's ledger is pending. Its P1 findings are unresolved until verified. Round 2 is pending. Not approved.
+- **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) is written but not yet run; it only counts once observed on an exact commit. The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
+- **Escaped/terminal JSON handling: OPEN REQUIREMENT, awaiting a sample.** It is not optional and not waived. Until a sample arrives, ordinary JSON strings remain strings (no unwrap), as described above.
 - **Cleanup of coexisting partial core modules: STILL PENDING.** `lib/json/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
