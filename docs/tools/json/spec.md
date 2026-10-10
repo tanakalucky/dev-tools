@@ -1,0 +1,142 @@
+# JSON formatter spec
+
+Status: implemented in code, **not yet accepted**. See [Still pending](#still-pending). Review rounds used = 0.
+
+## Route
+
+- Home / tool list: `/` (`app/page.tsx`)
+- JSON tool: `/json` (`app/json/page.tsx`, client component `app/json/json-tool.tsx`)
+
+## Pure API
+
+Public entry point: `lib/json/index.ts`. No DOM, no network, no storage. None of these functions throw on bad input; they return a result object.
+
+| Function               | Success result                                           |
+| ---------------------- | -------------------------------------------------------- |
+| `formatJson(source)`   | `{ ok: true, mode: "pretty", output, source, warnings }` |
+| `minifyJson(source)`   | `{ ok: true, mode: "minify", output, source, warnings }` |
+| `validateJson(source)` | `{ ok: true, source, warnings }`                         |
+
+Every result, success or failure, carries the original `source` unchanged.
+
+Failure results are `{ ok: false, kind, message, source, ... }` with one of these kinds:
+
+| Kind               | Extra fields                        | Meaning                                         |
+| ------------------ | ----------------------------------- | ----------------------------------------------- |
+| `too-large`        | `bytes`, `limit`                    | Input is over the input cap. Nothing is parsed. |
+| `syntax`           | `offset`, `line`, `column`          | Not a single valid JSON document.               |
+| `too-deep`         | `offset`, `line`, `column`, `limit` | Nesting is over the nesting cap.                |
+| `output-too-large` | `limit`                             | Pretty output would exceed the output bound.    |
+
+Also exported: the constants `MAX_DEPTH` and `MAX_OUTPUT_LENGTH`, and the result types. The input cap constant `MAX_INPUT_BYTES` lives in `lib/size-limit.ts`.
+
+Processing order: size check, tokenize, grammar check, duplicate-key scan, then printing.
+
+## Preservation
+
+The printers copy every token verbatim from the input and only produce the whitespace between tokens. The document is never round-tripped through `JSON.parse` / `JSON.stringify`. As a result:
+
+- Number spelling is preserved (`1.0`, `1e5`, `-0`, large integers and long decimals are not rewritten).
+- Raw string escapes are preserved (unicode escapes, `\/` and `\n` stay exactly as written).
+- Key order is preserved.
+- Duplicate keys are preserved; none are removed, merged or renamed.
+- Whitespace inside strings is preserved. Only insignificant whitespace between tokens changes.
+
+Format indents with 2 spaces. Empty containers print as `[]` and `{}`. Minify removes insignificant whitespace only.
+
+Whitespace between tokens is exactly space, tab, `\n` and `\r`. Any other character there (for example a no-break space) is a syntax error.
+
+## Top-level primitives
+
+Any single JSON value is accepted at the top level: object, array, string, number, `true`, `false`, `null`. Empty or whitespace-only input is a syntax error (`Empty input: expected a JSON value`).
+
+### Strings stay strings (unwrap is deferred)
+
+A valid JSON string is formatted as that same string. If the string happens to contain JSON text (for example `"{\"a\":1}"`), it is **not** decoded or unwrapped: there is no unwrap export and no unwrap control. Backslashes are never removed.
+
+Likewise there is no cleanup of pasted terminal or shell output (prompts, quoting, escaping). The exact terminal sample this should handle is not yet known, so the behaviour is deferred rather than guessed. Such input currently either formats as the string it literally is, or fails with a syntax error and is left untouched.
+
+## Syntax diagnostics
+
+A `syntax` or `too-deep` failure reports the UTF-16 `offset` plus `line` and `column`. When both a grammar problem and a later lexical error exist, the one that comes first in the text is reported.
+
+### Line and column convention
+
+Defined in `lib/json/position.ts`:
+
+- Lines and columns are **1-based**.
+- Columns count UTF-16 code units, so a character outside the Basic Multilingual Plane (one surrogate pair) advances the column by two. A tab counts as one column.
+- Line breaks are `\n`, `\r\n` and a lone `\r`. A CRLF pair counts as **one** line break.
+
+## Duplicate-key warnings
+
+Duplicate keys are valid JSON here: they produce warnings, never failures, and the output keeps every key.
+
+- Scope is a single object. The same key in two different objects, or in a parent and a child, is not a duplicate.
+- Keys are compared by their **decoded** value, so a key written literally as `"a"` and a key written with the unicode escape for the same letter are duplicates even though they are spelled differently.
+- The first occurrence is not warned about. Each later occurrence produces one warning carrying `key` (decoded), `rawKey` (as written, with quotes), its own `offset` / `line` / `column`, and `firstOffset` / `firstLine` / `firstColumn` pointing at the first occurrence.
+- Names such as `__proto__` and `constructor` are ordinary keys.
+
+## Limits
+
+| Limit        | Value                         | Constant            | Defined in            | Boundary                           |
+| ------------ | ----------------------------- | ------------------- | --------------------- | ---------------------------------- |
+| Input cap    | 1,048,576 UTF-8 bytes (1 MiB) | `MAX_INPUT_BYTES`   | `lib/size-limit.ts:2` | Exactly 1,048,576 bytes is allowed |
+| Nesting cap  | 128 containers                | `MAX_DEPTH`         | `lib/json/types.ts:2` | Depth 128 allowed, 129 rejected    |
+| Output bound | 8,388,608 UTF-16 code units   | `MAX_OUTPUT_LENGTH` | `lib/json/types.ts:8` | Exactly at the bound is allowed    |
+
+- The input cap is measured in UTF-8 bytes, not characters, and is checked before any parsing.
+- The nesting cap counts arrays and objects together.
+- The output bound applies to pretty (format) output only, because indentation can make output larger than input. Minified output is never longer than its input, so it is covered by the input cap.
+
+## Privacy
+
+Input is processed in the browser tab. The tool makes no network request with the input, uses no `localStorage` or other persistence, sends no telemetry, and does not use `eval` or `dangerouslySetInnerHTML`. The only `JSON.parse` call in the core decodes a single, already-validated object key for duplicate detection; it never sees the whole document.
+
+Copy writes the output to the system clipboard, only when the user presses the button.
+
+## UI controls
+
+The page has a labelled input textarea ("Input JSON") and a labelled read-only output textarea ("Output (read-only)").
+
+| Control           | Behaviour                                                               | Disabled when      |
+| ----------------- | ----------------------------------------------------------------------- | ------------------ |
+| Format (2 spaces) | Runs `formatJson` on the input and shows the result in the output area. | Input is empty     |
+| Minify            | Runs `minifyJson` on the input and shows the result in the output area. | Input is empty     |
+| Copy output       | Writes the current output to the clipboard.                             | There is no output |
+| Clear             | Empties the input, the output and all messages.                         | Input is empty     |
+
+- Work runs on button press only. Nothing is parsed or formatted while typing.
+- The input is never modified by Format or Minify, and is preserved on failure. Only Clear empties it.
+- Editing the input discards the previous output, error, warnings and copy status, so the output area never shows a result for text that is no longer in the input.
+- Failures appear in a `role="alert"` box with a title, the line and column when the core provides them (`syntax`, `too-deep`), and the core's message. The output area is empty after a failure.
+- Over-cap input is not truncated or blocked while typing or pasting; pressing Format or Minify reports the `too-large` failure with the actual byte count and the limit.
+- Duplicate-key warnings are listed with line and column below the controls; the output still contains every key.
+- "Copied" is shown only after the clipboard write resolves. If the clipboard API is missing or the write is rejected, a visible `role="alert"` failure message is shown instead.
+- Success and copy status use a `role="status"` live region. Controls are native buttons with a visible focus outline, and the layout wraps on narrow screens.
+
+## Browser tests
+
+`npm run test:e2e` runs the Playwright tests in `e2e/json.pw.ts` against `npm run dev` on `127.0.0.1:43173`, in Chromium only. Prerequisite: a Playwright Chromium build (`npx playwright install chromium`). The `.pw.ts` suffix keeps these files out of the vitest run.
+
+The eight tests use synthetic input only and cover:
+
+- Home page link to `/json`, the accessible names of the fields and buttons, and keyboard-only use at a 360x640 viewport.
+- Format with 2 spaces keeping `9007199254740993` exactly, with the input unchanged.
+- Minify keeping raw escapes, and markup inside JSON strings staying inert text (no element created, no script run, no dialog).
+- A syntax error with line and column and the input preserved; editing and Clear discarding stale output and errors.
+- Duplicate-key warnings with both keys kept in the output.
+- Copy against a **stubbed** `navigator.clipboard`: success shown only after the write resolves; a rejected write or a missing API shows the failure message and no success claim.
+- Privacy: a sentinel typed after page load does not appear in any request, WebSocket frame, `localStorage`, `sessionStorage`, cookie or the URL, and is gone after reload.
+
+**No passing run is recorded.** In the environment where the tests were written, `npm run test:e2e` stopped before any test started: the dev server exited with `uv_interface_addresses returned Unknown system error 1` (raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`). The tests therefore still need a first run on a machine where `npm run dev` starts.
+
+## Still pending
+
+None of the following has been done. This spec makes no claim of a reviewed or deployed MVP.
+
+- **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)) but have no recorded passing run. Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
+- **Independent Claude reviews: STILL PENDING.** Review rounds used = 0.
+- **Deployment: STILL PENDING.** Nothing is deployed.
+- **Optional unwrap: STILL PENDING.** Unwrapping JSON encoded inside a JSON string, and terminal/shell paste cleanup, are deferred as described above.
+- **Cleanup of coexisting partial core modules: STILL PENDING.** `lib/json/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
