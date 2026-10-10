@@ -1,17 +1,17 @@
 // node --import で先読みする接続ガード。
 // ループバック (127.0.0.1 / ::1 / localhost) 以外への接続を拒否し、
-// 試みた宛先を PREFLIGHT_GUARD_LOG が指すファイルへ追記する。
+// 試みた宛先を NETWORK_GUARD_LOG が指すファイルへ追記する。
 import net from "node:net";
 import tls from "node:tls";
 import dns from "node:dns";
 import fs from "node:fs";
 
-const FLAG = Symbol.for("preflight.network-guard");
+const FLAG = Symbol.for("preview.network-guard");
 
 if (!globalThis[FLAG]) {
   globalThis[FLAG] = true;
 
-  const logPath = process.env.PREFLIGHT_GUARD_LOG;
+  const logPath = process.env.NETWORK_GUARD_LOG;
   const loopbackHosts = new Set(["127.0.0.1", "::1", "localhost", "[::1]"]);
 
   const record = (kind, target) => {

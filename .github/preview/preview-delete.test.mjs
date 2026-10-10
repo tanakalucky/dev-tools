@@ -1,4 +1,4 @@
-// preview-cleanup が実行する `wrangler preview delete` の送信先を、ループバックの模擬 API で確かめる。
+// preview-cleanup が実行する削除処理(delete-preview.sh)の送信先を、ループバックの模擬 API で確かめる。
 // 本物の Cloudflare には接続しない(network-guard でループバック以外を遮断し、試行を記録する)。
 // wrangler の版を上げるときは、このテストの成功を条件とする。
 import { test } from "node:test";
@@ -11,9 +11,10 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const wranglerBin = path.join(here, "node_modules/wrangler/bin/wrangler.js");
+const script = path.join(here, "delete-preview.sh");
 const guard = path.join(here, "test-support/network-guard.mjs");
 const ACCOUNT = "0123456789abcdef0123456789abcdef";
+const PREVIEWS = `/client/v4/accounts/${ACCOUNT}/workers/workers/dev-tools/previews/`;
 
 // 受け取ったリクエストの method と path だけを記録し、status で応答する模擬 API。
 async function startMockApi(status) {
@@ -38,7 +39,7 @@ async function startMockApi(status) {
   return { server, requests, base: `http://127.0.0.1:${server.address().port}/client/v4` };
 }
 
-// workflow の削除 step と同じ引数で wrangler を起動する。cwd は wrangler 設定の無い一時ディレクトリ。
+// workflow の削除 step と同じスクリプトを、wrangler 設定の無い一時ディレクトリで起動する。
 function runDelete(base, previewName) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "preview-delete-"));
   const guardLog = path.join(cwd, "guard.log");
@@ -47,28 +48,24 @@ function runDelete(base, previewName) {
     HOME: cwd,
     CI: "true",
     NODE_OPTIONS: `--import=${guard}`,
-    PREFLIGHT_GUARD_LOG: guardLog,
+    NETWORK_GUARD_LOG: guardLog,
     CLOUDFLARE_API_BASE_URL: base,
     CLOUDFLARE_API_TOKEN: "fake-token-for-loopback-only",
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT,
-    WRANGLER_SEND_METRICS: "false",
-    // banner を出すと npm registry への更新確認が走るため止める(workflow と同じ指定)。
-    WRANGLER_HIDE_BANNER: "true",
+    PREVIEW_NAME: previewName,
   };
-  const args = [
-    wranglerBin,
-    "preview",
-    "delete",
-    "--worker-name",
-    "dev-tools",
-    `--name=${previewName}`,
-    "--skip-confirmation",
-  ];
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+    // 確認待ちなどで止まった場合に CI の上限まで待たないよう、30 秒で打ち切る。
+    const child = spawn(script, [], {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 30_000,
+    });
     let output = "";
     child.stdout.on("data", (d) => (output += d));
     child.stderr.on("data", (d) => (output += d));
+    child.on("error", (error) => resolve({ code: null, output: String(error), blocked: "" }));
     child.on("close", (code) => {
       const blocked = fs.existsSync(guardLog) ? fs.readFileSync(guardLog, "utf8").trim() : "";
       resolve({ code, output, blocked });
@@ -76,22 +73,37 @@ function runDelete(base, previewName) {
   });
 }
 
-test("ブランチ名の Preview だけを DELETE し、Worker 本体には触れない", async () => {
-  const api = await startMockApi(200);
-  try {
-    const { code, output, blocked } = await runDelete(api.base, "feat/json-formatter");
-    assert.equal(code, 0, output);
-    assert.equal(blocked, "", "ループバック以外への接続が試みられた");
-    assert.deepEqual(api.requests, [
-      {
-        method: "DELETE",
-        path: `/client/v4/accounts/${ACCOUNT}/workers/workers/dev-tools/previews/feat%2Fjson-formatter`,
-      },
-    ]);
-  } finally {
-    api.server.close();
-  }
-});
+for (const [name, encoded] of [
+  ["feat/json-formatter", "feat%2Fjson-formatter"],
+  ["fix#12", "fix%2312"],
+]) {
+  test(`ブランチ名 ${name} の Preview だけを DELETE し、Worker 本体には触れない`, async () => {
+    const api = await startMockApi(200);
+    try {
+      const { code, output, blocked } = await runDelete(api.base, name);
+      assert.equal(code, 0, output);
+      assert.equal(blocked, "", "ループバック以外への接続が試みられた");
+      assert.deepEqual(api.requests, [{ method: "DELETE", path: PREVIEWS + encoded }]);
+    } finally {
+      api.server.close();
+    }
+  });
+}
+
+// `..` は wrangler の URL で `previews/` を打ち消し、Worker 本体の DELETE になる(4.149.0 で確認)。
+for (const name of ["..", ".", "-x", "a/../b"]) {
+  test(`ブランチ名として不正な ${name} では何も送らずに失敗する`, async () => {
+    const api = await startMockApi(200);
+    try {
+      const { code, blocked } = await runDelete(api.base, name);
+      assert.notEqual(code, 0);
+      assert.equal(blocked, "", "ループバック以外への接続が試みられた");
+      assert.deepEqual(api.requests, []);
+    } finally {
+      api.server.close();
+    }
+  });
+}
 
 test("API が失敗を返したら非 0 で終了する(run の失敗として報告される)", async () => {
   const api = await startMockApi(404);
@@ -99,8 +111,10 @@ test("API が失敗を返したら非 0 で終了する(run の失敗として�
     const { code, blocked } = await runDelete(api.base, "already-gone");
     assert.notEqual(code, 0);
     assert.equal(blocked, "", "ループバック以外への接続が試みられた");
-    assert.ok(
-      api.requests.some((r) => r.method === "DELETE" && r.path.endsWith("/previews/already-gone")),
+    // 失敗時の wrangler は token の確認(GET)を追加で送る。変更を伴うリクエストは Preview の DELETE だけであること。
+    assert.deepEqual(
+      api.requests.filter((r) => r.method !== "GET"),
+      [{ method: "DELETE", path: PREVIEWS + "already-gone" }],
     );
   } finally {
     api.server.close();
