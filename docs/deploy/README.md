@@ -1,91 +1,82 @@
 # preview deploy
 
-PR のブランチごとに Cloudflare の Worker Preview を作り、push で更新し、PR が閉じられたら削除する仕組み。
-本番 deploy と custom domain は対象外。実際の Workers Builds と Cloudflare API での動作は、この文書の時点で検証していない。
+PR のブランチごとに Cloudflare の Worker Preview(Worker `dev-tools`)を作り、push で更新し、PR が閉じられたら削除する仕組み。
+すべて GitHub Actions で行い、Workers Builds は使わない。本番 deploy と custom domain は対象外。
+deploy 経路は実 CI でも Cloudflare でも未実行で、削除は模擬 API での確認だけ。
 
 ## 流れ
 
-1. 作成・更新: Workers Builds(Cloudflare 側)。Worker `dev-tools` に接続したリポジトリの非本番ブランチへの push で、
-   Preview 用の build と `cf previews deploy` が走る。このリポジトリに deploy 用の workflow は無い。
-2. 削除: `preview-cleanup`(GitHub Actions)。PR が閉じられたとき(または手動)に `wrangler preview delete` で Preview を消す。
+1. 作成・更新: `preview-deploy`(`pull_request`: opened / synchronize / reopened、job は 1 つ)。
+   PR の head を checkout → `npm ci` → `CLOUDFLARE_PREVIEW_BUILD=true npm run build` →
+   `cf previews deploy <ブランチ名> --prebuilt`(アプリが固定している `cf` を使う)。
+   ルートに `package.json` が無い PR(基盤 PR 自身など)では何もしない。
+2. 削除: `preview-cleanup`(`pull_request_target`: closed、または手動実行)。`wrangler preview delete` で Preview を消す。
 
-## 有効化の手順(このリポジトリの外で行う。この PR では実施していない)
+## 信頼モデル
 
-順番を守る。Preview の作成を最後に有効にし、作られた Preview を消せない期間を作らない。
+- 対象は本人が管理する PR だけ。build と deploy は同じ job で動くため、PR の build コードは deploy step の secret に
+  影響しうる。これを受け入れており、secret の隔離は主張しない。
+- fork の PR と、owner 以外が起動・再実行した run では job が動かない(`github.actor`・`github.triggering_actor`・
+  `github.actor_id` がリポジトリ owner と一致するときだけ)。PR 作者名や commit author は見ない。
+- `pull_request` の workflow は PR 側の定義で動くため、これらの条件は PR 側で書き換えられる。本人管理の PR に限る前提で受け入れている。
 
-1. Cloudflare で Preview の削除ができる API token を作る(必要な権限の最小範囲は未検証。Workers Scripts の編集を想定)。
-2. GitHub の repository secret に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録する。
-3. GitHub の repository variable `PREVIEW_CLEANUP_ENABLED` を `true` にする。
-4. Workers Builds で Worker `dev-tools` にリポジトリを接続し、非本番ブランチの build と Preview を次の表のとおり設定して有効にする。
-   Workers Builds は Cloudflare 側の build token で動き、GitHub の secret は使わない。
+## 2 つの workflow の信頼境界
 
-### Workers Builds の設定
-
-| 項目                     | 値                                            |
-| ------------------------ | --------------------------------------------- |
-| 接続する Worker          | `dev-tools`(`cloudflare.config.ts` の `name`) |
-| 非本番ブランチの build   | `CLOUDFLARE_PREVIEW_BUILD=true npm run build` |
-| 非本番ブランチの Preview | `npx cf previews deploy --prebuilt`           |
-
-既定の Preview command(`npx wrangler preview`)は使わない。このアプリは `cf/config`(`cloudflare.config.ts`)と
-Cloudflare Vite plugin 2 で Build Output(`.cloudflare/output/v0`)を出し、wrangler 設定ファイルを持たない。
-`wrangler preview`(4.149.0 で確認)は Build Output を読めないが、アプリが既に固定している `cf` の
-`cf previews deploy --prebuilt` は読める。`--prebuilt` は `CLOUDFLARE_PREVIEW_BUILD=true` で作った出力
-(`buildContext.isPreview: true`)でなければ拒否する。
-この確認は feat/json-formatter を一時領域で `npm ci` → `CLOUDFLARE_PREVIEW_BUILD=true npm run build` し、
-生成された `.cloudflare/output/v0/config.json` と `node_modules/cf/dist` の `previews` の実装を読んで行った。
+| 項目           | preview-deploy                                              | preview-cleanup                                                                 |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 起動           | `pull_request`(opened / synchronize / reopened)            | `pull_request_target`(closed)、`workflow_dispatch`(既定ブランチからだけ)        |
+| 実行するコード | PR の head(build を含む)                                    | 既定ブランチの `.github/preview` で版を固定した `wrangler`。PR のコードは実行しない |
+| 権限           | `contents: read`、`pull-requests: read`                     | 同左                                                                            |
+| secret         | deploy step の `env` だけ                                   | 削除 step の `env` だけ                                                         |
+| 対象           | 同一リポジトリの PR、owner 本人の起動・再実行だけ           | head が同じリポジトリの PR だけ。同じブランチの open な PR が残っていれば削除しない |
 
 ## 名前の規則
 
-Preview 名はブランチ名そのもの(`pr-<n>` は使わない)。
+Preview 名は PR の head ブランチ名そのもの(`pr-<n>` は使わない)。
 
-- 作成: `cf previews deploy` は名前を省略すると `WORKERS_CI_BRANCH`(Workers Builds が設定する)→ `GITHUB_HEAD_REF` → … →
-  git のブランチ名の順に使う(`cf@1.0.0-beta.14` の配布物で確認)。
-- 削除: `preview-cleanup` は PR の `head.ref`(手動実行では入力の `branch`)を `.github/preview/delete-preview.sh` に渡す。
+- ブランチ名は `env` 経由で渡し、`run:` に直接埋め込まない。
+- `.github/preview/check-preview-name.sh` を deploy と削除で共有する。`git check-ref-format --branch` で検査し、
+  `.`・`..`・`-` 始まり・`@{` を含む名前などを拒否する。
+- deploy は `cf previews deploy <名前> --prebuilt`(名前は位置引数)。
+- 削除は `wrangler preview delete --worker-name dev-tools` を wrangler 設定の無いディレクトリで実行する。
+  `..` をそのまま渡すと wrangler の URL が `previews/` を打ち消して Worker 本体の DELETE になるため、この検査は外さない。
+  送信されるのは `DELETE /accounts/{id}/workers/workers/dev-tools/previews/{ブランチ名}` だけ
+  (`.github/preview/preview-delete.test.mjs` がループバックの模擬 API で確認する)。
 
-`delete-preview.sh` は名前を `git check-ref-format --branch` で検査し、`.`・`..`・`-` 始まりなどを拒否してから、
-`wrangler preview delete --worker-name dev-tools` を wrangler 設定の無いディレクトリで実行する。
-`..` をそのまま渡すと wrangler の URL が `previews/` を打ち消して Worker 本体の DELETE になるため、この検査は外さない。
-送信されるのは `DELETE /accounts/{id}/workers/workers/dev-tools/previews/{ブランチ名}` だけ
-(`.github/preview/preview-delete.test.mjs` がループバックの模擬 API で確認する)。
+## close との競合
 
-## preview-cleanup の信頼境界
+deploy と cleanup は同じ concurrency group(`preview-<ブランチ名>`)で直列化し、deploy 直前に PR が open で
+head SHA がこの run のものと一致することを確認する。一致しなければ deploy しない。
+GitHub は同じ group の待機中 run を新しい run で置き換えることがある。その場合は手動で片付ける。
 
-| 項目           | 内容                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| 起動           | `pull_request_target`(closed)、`workflow_dispatch`(既定ブランチからの実行だけ)                    |
-| 実行するコード | 既定ブランチの `.github/preview` で版を固定した `wrangler`。PR のコードは checkout も実行もしない |
-| 権限           | `contents: read`、`pull-requests: read`                                                           |
-| secret         | 削除 step の `env` だけ(`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`)                          |
-| 対象           | head が同じリポジトリの PR だけ。fork の PR では job 自体が動かない                               |
+## 有効化
 
-- 同じブランチの open な PR が残っていれば削除しない。
-- ブランチ名は `env` 経由で渡し、シェルに直接埋め込まない。
-- wrangler のテレメトリは `WRANGLER_SEND_METRICS=false`、npm registry への更新確認は `WRANGLER_HIDE_BANNER=true` で止める。
+有効化スイッチは無い。main にマージされた時点で、条件(deploy は同一リポジトリの PR かつ owner 本人の起動・再実行、cleanup は上の表の既存条件)を満たせば動く。
+repository secret `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` が必要(値の登録はこのリポジトリの外で行う)。
+止めたいときは、GitHub の Actions 画面で該当 workflow を disable するか、secret を外す。
 
-## 有効化スイッチ
+## 導入順
 
-リポジトリ変数 `PREVIEW_CLEANUP_ENABLED` が `true` のときだけ `preview-cleanup` のジョブが動く。それ以外は何もしない。
-このスイッチは削除だけを制御する。Preview の作成を止めるには Workers Builds 側の設定を変える。
+1. 基盤 PR を main へマージする。
+2. main を JSON ブランチへ取り込む。
 
-## 手動の片付け
+`pull_request` は PR ブランチに workflow が必要なため取り込みが要る。`pull_request_target` は既定ブランチの定義で動く。
 
-Actions の `preview-cleanup` を `workflow_dispatch` で、`branch` にブランチ名を指定して実行する。
-同じブランチの open な PR が残っていれば、削除せずに成功終了し、その旨を job summary に書く。
-削除の失敗(存在しない Preview を含む)は run の失敗になる。
+## 手動の対処
+
+- deploy: owner が該当 run を再実行する。
+- 片付け: Actions の `preview-cleanup` を `workflow_dispatch` で、`branch` にブランチ名を指定して実行する。
+  同じブランチの open な PR が残っていれば、削除せずに成功終了し、job summary に書く。
+  削除の失敗(存在しない Preview を含む)は run の失敗になる。
 
 ## 限界と未検証
 
-- イベントを喪失した場合は自動で回復しない。手動の片付けが必要。定期的な照合はしない。
-- Workers Builds が Preview command を `cf` に差し替えた構成を受け付けるか、project-local の Wrangler を前提に
-  事前チェックしないかは未検証。
-- Workers Builds が fork の PR のブランチに Preview を作るかは未検証。作られた場合、この workflow は消さない。
-- 実際の Cloudflare API での削除と、存在しない Preview を消したときの応答は未検証(模擬 API での確認だけ)。
-- 名前の一致は未検証: Workers Builds の PR のビルドで `WORKERS_CI_BRANCH` が PR の head ブランチ名になるか、
-  `/` を含むブランチ名で Cloudflare が名前を正規化しないか(Preview には名前とは別に slug がある)。
-  有効化後の最初の確認は、`/` を含むブランチで作成 → PR を閉じて削除、の順に行う。
-- 削除に必要な API token の最小権限は未検証。
-- PR が閉じられたあとに同じブランチへ push すると、Workers Builds が Preview を作り直す。
-- repository secret は同一リポジトリの他の workflow からも参照できる。この仕組みは secret の隔離を主張しない。
+- deploy 経路は実 CI でも Cloudflare でも未実行。削除は模擬 API での確認だけ。
+- 名前の正規化(`/` を含むブランチ名で Cloudflare が名前を変えないか。Preview には名前とは別に slug がある)は未検証。
+- 削除・deploy に必要な API token の最小権限は未検証。
+- イベントを喪失した場合は自動で回復しない。定期的な照合はしない。
+- 手動作成済みの Preview `feat/json-formatter` は Access の redirect により動作未確認。
+- PR を閉じたあとの同じブランチへの push では Preview は作られない(`pull_request` が発生しない)。reopen するか新しい PR を開くと、owner の run で作り直される。
+- repository secret は同一リポジトリの他の workflow からも参照できる。
 - `cf` は beta(`1.0.0-beta.14`)、Worker Previews は open beta。
 - action はタグ指定で、SHA 固定ではない。

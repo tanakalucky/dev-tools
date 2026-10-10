@@ -5,14 +5,14 @@ set -euo pipefail
 
 name="${PREVIEW_NAME:?PREVIEW_NAME が空です}"
 
-# git のブランチ名として正しいものだけを受け付ける。
-# `.` と `..` は wrangler が組み立てる URL で Preview の外(Worker 本体など)を指すため、ここで必ず拒否する。
-if [ "$name" = "." ] || [ "$name" = ".." ] || ! git check-ref-format --branch "$name" >/dev/null 2>&1; then
+here="$(cd "$(dirname "$0")" && pwd)"
+
+# 名前の検査は deploy と共有する(check-preview-name.sh)。不正なら何も送らずに失敗する。
+if ! bash "$here/check-preview-name.sh" "$name"; then
   echo "Preview 名がブランチ名として不正なため削除しません" >&2
   exit 1
 fi
 
-here="$(cd "$(dirname "$0")" && pwd)"
 # テレメトリを止める。banner を出すと npm registry への更新確認が走るため、それも止める。
 export WRANGLER_SEND_METRICS=false
 export WRANGLER_HIDE_BANNER=true
