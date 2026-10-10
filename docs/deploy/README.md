@@ -22,13 +22,13 @@ deploy 経路は実 CI でも Cloudflare でも未実行で、削除は模擬 AP
 
 ## 2 つの workflow の信頼境界
 
-| 項目           | preview-deploy                                              | preview-cleanup                                                                 |
-| -------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| 起動           | `pull_request`(opened / synchronize / reopened)            | `pull_request_target`(closed)、`workflow_dispatch`(既定ブランチからだけ)        |
-| 実行するコード | PR の head(build を含む)                                    | 既定ブランチの `.github/preview` で版を固定した `wrangler`。PR のコードは実行しない |
-| 権限           | `contents: read`、`pull-requests: read`                     | 同左                                                                            |
-| secret         | deploy step の `env` だけ                                   | 削除 step の `env` だけ                                                         |
-| 対象           | 同一リポジトリの PR、owner 本人の起動・再実行だけ           | head が同じリポジトリの PR だけ。同じブランチの open な PR が残っていれば削除しない |
+| 項目           | preview-deploy                                    | preview-cleanup                                                                     |
+| -------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 起動           | `pull_request`(opened / synchronize / reopened)   | `pull_request_target`(closed)、`workflow_dispatch`(既定ブランチからだけ)            |
+| 実行するコード | PR の head(build を含む)                          | 既定ブランチの `.github/preview` で版を固定した `wrangler`。PR のコードは実行しない |
+| 権限           | `contents: read`、`pull-requests: read`           | 同左                                                                                |
+| secret         | deploy step の `env` だけ                         | 削除 step の `env` だけ                                                             |
+| 対象           | 同一リポジトリの PR、owner 本人の起動・再実行だけ | head が同じリポジトリの PR だけ。同じブランチの open な PR が残っていれば削除しない |
 
 ## 名前の規則
 
