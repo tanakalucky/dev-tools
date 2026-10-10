@@ -7,14 +7,12 @@ Browser-only developer utilities. Tool input is processed locally in the browser
 Work in progress. **Not deployed and not approved.** ローカルのブラウザ起動はこの環境ではブロックされている。
 
 - Implemented: a JSON formatter at `/` and `/json` (format with 2 spaces, minify, validate, duplicate-key warnings, copy, clear). See [docs/tools/json/spec.md](docs/tools/json/spec.md).
-- CI 事実 1(従前): コミット f07c94044294c21bf628d7810d49292b5a1e3b48 で unit 156 と実 Chromium E2E 17 が成功した。
-- CI 事実 2(今回): 公開 head 369913cb5fef0569d9f91f46d9e9ad72c32b044d(run 38026672615)で unit 177、typecheck、lint、fmt、build は成功。実 Chromium E2E は 17 件中 15 成功・2 失敗(デコード通知の exact 一致。JSX の行またぎで余計な空白が入ったのが原因)。
-- 通知文言の修正はローカル検証のみで、新しい CI の結果待ち。CI が全成功したとは言えない。
+- CI: head 51aace6 で unit 177 件と Chromium E2E 17 件が成功した。この変更(shadcn/ui 導入)後の結果は未確定。
 - ローカルのブラウザ起動はこの環境ではブロックされている(`@cloudflare/vite-plugin` 内の `os.networkInterfaces` エラー)。未解決の optional peer(`react-server-dom-webpack/static.edge`)の警告は別件で、`@vitejs/plugin-rsc` が自前のコピーを同梱するためパッケージは意図的に追加していない。
 - CI: `.github/workflows/ci.yml`(unit、typecheck、lint、format check、build、Node 24 での Playwright E2E、read-only 権限、secrets なし)。
-- Review: 1 of 3 rounds consumed (external, historical_unverified, no approval); round 2 is pending and not started.
+- Review: 2 of 3 rounds consumed; the final round has not been run. Not approved.
 - Encoded JSON (conservative): pasting a JSON string literal whose content is an object or array, e.g. `"{\"a\":1}"`, is decoded by exactly one layer and formatted; large numbers, key order, duplicate keys and inner escapes are preserved. Line and column numbers then refer to the decoded text, and a checkbox (on by default) turns decoding off. Limits (1 MiB input, depth, output) apply to the original and decoded text. Unsupported: raw shell quoting, prompts or prefixes, arbitrary backslash removal, double-encoded or deeper layers, encoded scalars, unknown terminal formats. Ordinary JSON strings remain strings. No exact terminal sample was provided, so not all terminal pastes are handled.
-- Not done, not authorized in this phase: deployment and preview. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers; nothing is live.
+- Preview runs on GitHub Actions ([docs/deploy/README.md](docs/deploy/README.md)). There is no production deploy. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers.
 
 ## Setup
 
@@ -49,7 +47,9 @@ There is no deploy command yet.
 - `app/` - ルート・レイアウト・薄い composition のみ(ホームと `/json`)。
 - `features/` - 機能単位のコード。現在は `features/json/`(UI は `components/`、純粋処理は `lib/`)。詳細は [features/README.md](features/README.md)。
 - `tools/oxlint-boundaries/` - 層境界を検査するローカル oxlint JS プラグイン(alpha・semver 保証なし)。詳細は [tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md)。設定は `.oxlintrc.json`。
-- ルート直下の `components/` `lib/` `hooks/` は、複数機能で本当に共有するものが出た時だけ作る(現在は無し)。
+- `components/ui/` - shadcn/ui の公式部品(Base UI 版)。追加は公式 CLI と `components.json` で行い、部品のソースは手で改変しない。
+- `lib/utils.ts` - `cn` の再エクスポート(部品が使う)。
+- 共有コードの import は `@/` エイリアス(プロジェクトルート相対)を使う。ルート直下の `hooks/` は、複数機能で本当に共有するものが出た時だけ作る(現在は無し)。
 
 ### 依存ルール(責務と設計意図)
 

@@ -8,5 +8,7 @@ import type { U } from "../../csv/lib/a";
 export const d = import("../../csv/lib/a");
 export type V = import("../../csv/lib/a").V;
 import e = require("../lib/a");
-export { a, b, e };
+import f from "@/app/page";
+import g from "@/features/csv/lib/a";
+export { a, b, e, f, g };
 export type { U };

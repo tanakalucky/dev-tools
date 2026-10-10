@@ -132,7 +132,7 @@ Copy writes the output to the system clipboard, only when the user presses the b
 - Duplicate-key warnings are listed with line and column below the controls; the output still contains every key.
 - Copy の成功表示は、クリップボード書き込みが成功した後にのみ出す。古い非同期の書き込み結果が新しい状態を上書きしない(最新の要求だけが状態を持つ。入力編集・Clear・再実行の後に古い書き込みが解決しても状態を出さない)。
 - The success state is shown only after the clipboard write resolves. If the clipboard API is missing or the write is rejected, a visible `role="alert"` failure message is shown instead.
-- Success and copy status use a `role="status"` live region. Controls are native buttons with a visible focus outline, and the layout wraps on narrow screens.
+- Success and copy status use a `role="status"` live region. Controls are buttons (rendered as native `<button>` elements) with a visible focus indicator, and the layout wraps on narrow screens.
 
 ## Browser tests
 
@@ -170,4 +170,4 @@ None of the following has been done. This spec makes no claim of a reviewed or d
 - **Independent reviews: 1 of 3 rounds consumed.** Round 1 was explicitly adopted into the plugin review ledger as historical_unverified, with no synthetic clean reviews and no approval. Its P1 findings remain unresolved pending independent review round 2, which has not started. Not approved. The requested project `.claude` files remain blocked/pending; the plugin did not implement them.
 - **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) は上記の実行で観測済み。以後のコミットは正確なコミットで観測されるまで成功とみなさない。 The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
 - **Escaped/terminal JSON handling: conservative subset implemented** (see [Encoded JSON containers](#encoded-json-containers)). No exact terminal sample was provided, so other formats remain unsupported. escaped 入力の E2E は実 Chromium で実行済み (15/17 成功、失敗 2 件は通知文言で、修正は CI 待ち)。
-- **Cleanup of coexisting partial core modules: STILL PENDING.** `features/json/lib/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
+- **Cleanup of coexisting partial core modules: DONE.** The unused earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) were deleted from `features/json/lib/`; nothing imported them. The public API uses `tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`.

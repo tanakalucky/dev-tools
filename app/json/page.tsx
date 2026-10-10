@@ -7,13 +7,15 @@ export const metadata = {
 
 export default function JsonPage() {
   return (
-    <main className="page page-wide">
+    <main className="mx-auto max-w-5xl px-4 py-8">
       <header>
-        <p className="breadcrumb">
-          <a href="/">dev-tools</a>
+        <p className="mt-0 mb-2 text-sm">
+          <a href="/" className="underline">
+            dev-tools
+          </a>
         </p>
-        <h1>JSON フォーマッター</h1>
-        <p className="lede">
+        <h1 className="m-0 text-[1.75rem]">JSON フォーマッター</h1>
+        <p className="mt-1 mb-0 text-muted-foreground">
           JSON の整形、最小化、検証を行います。データはこのブラウザタブの外に出ません。
         </p>
       </header>

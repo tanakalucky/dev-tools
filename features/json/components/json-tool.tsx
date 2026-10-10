@@ -1,10 +1,23 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatJsonEncoded, minifyJsonEncoded, type JsonFailure, type EncodedResult } from "../lib";
 import { MAX_INPUT_BYTES } from "../lib/size-limit";
 
 type CopyStatus = "idle" | "copied" | "failed";
+
+// 部品の既定 (field-sizing-content) は 1 MiB の入力で欄が際限なく伸びるため、固定サイズにする。
+const codeAreaClassName =
+  "field-sizing-fixed min-h-48 resize-y font-mono text-sm leading-[1.45] [tab-size:2]";
+// タッチターゲットの最小高さを保ち、狭い画面では 2 列に折り返す。
+const actionButtonClassName = "h-auto min-h-11 px-3.5 py-2 max-[30rem]:flex-[1_1_calc(50%-0.5rem)]";
+const messageClassName = "border-l-[0.375rem] wrap-anywhere";
+const descriptionClassName = "grid gap-1 [&_p:not(:last-child)]:mb-0";
 
 // JSX の行またぎテキストは空白 1 つで連結されるため、単一の文字列として保持する。
 const DECODE_NOTICE_TEXT =
@@ -105,12 +118,14 @@ export function JsonTool() {
   const location = failure === null ? null : failureLocation(failure);
 
   return (
-    <div className="json-tool" data-hydrated={hydrated ? "true" : "false"}>
-      <div className="field">
-        <label htmlFor="json-input">入力 JSON</label>
-        <textarea
+    <div className="json-tool mt-6 grid gap-4" data-hydrated={hydrated ? "true" : "false"}>
+      <div className="grid gap-1.5">
+        <Label htmlFor="json-input" className="font-semibold">
+          入力 JSON
+        </Label>
+        <Textarea
           id="json-input"
-          className="code-area"
+          className={codeAreaClassName}
           value={input}
           onChange={(event) => handleInputChange(event.target.value)}
           aria-describedby="json-input-hint"
@@ -120,47 +135,68 @@ export function JsonTool() {
           autoCorrect="off"
           rows={12}
         />
-        <p id="json-input-hint" className="hint">
+        <p id="json-input-hint" className="m-0 text-sm text-muted-foreground">
           最大 {MAX_INPUT_BYTES.toLocaleString("en-US")} バイト (1 MiB、UTF-8)。処理はこの
           ブラウザタブ内だけで行われます。入力は変更されません。
         </p>
       </div>
 
-      <div className="field">
-        <label>
-          <input
-            type="checkbox"
+      <div className="grid gap-1.5">
+        {/* Base UI の Checkbox は role="checkbox" の span と、隠し input を描画する。
+            名前は aria-labelledby で文言の要素に明示的に結び付ける。 */}
+        <Label className="items-start font-semibold leading-normal">
+          <Checkbox
             checked={decodeEncoded}
-            onChange={(event) => handleDecodeToggle(event.target.checked)}
-          />{" "}
-          オブジェクトまたは配列を含む JSON 文字列をデコードする (1 階層)
-        </label>
+            onCheckedChange={(checked) => handleDecodeToggle(checked)}
+            aria-labelledby="json-decode-label"
+            className="mt-1"
+          />
+          <span id="json-decode-label">
+            オブジェクトまたは配列を含む JSON 文字列をデコードする (1 階層)
+          </span>
+        </Label>
       </div>
 
-      <div className="actions" role="group" aria-label="JSON の操作">
-        <button
+      <div className="flex flex-wrap gap-2" role="group" aria-label="JSON の操作">
+        <Button
           type="button"
+          variant="outline"
+          className={actionButtonClassName}
           onClick={() => invalidate(formatJsonEncoded(input, { decodeEncoded }))}
           disabled={!hasInput}
         >
           整形 (2 スペース)
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          className={actionButtonClassName}
           onClick={() => invalidate(minifyJsonEncoded(input, { decodeEncoded }))}
           disabled={!hasInput}
         >
           最小化
-        </button>
-        <button type="button" onClick={() => void handleCopy()} disabled={!hasOutput}>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className={actionButtonClassName}
+          onClick={() => void handleCopy()}
+          disabled={!hasOutput}
+        >
           出力をコピー
-        </button>
-        <button type="button" onClick={handleClear} disabled={!hasInput}>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className={actionButtonClassName}
+          onClick={handleClear}
+          disabled={!hasInput}
+        >
           クリア
-        </button>
+        </Button>
       </div>
 
-      <p className="status" role="status" aria-live="polite">
+      <p className="m-0 min-h-6 text-sm" role="status" aria-live="polite">
         {copyStatus === "copied" ? "出力をクリップボードにコピーしました。" : ""}
         {copyStatus === "idle" && result?.ok === true
           ? result.mode === "pretty"
@@ -170,52 +206,62 @@ export function JsonTool() {
       </p>
 
       {result?.decoded === true && result.ok ? (
-        <p className="message" role="status">
-          {DECODE_NOTICE_TEXT}
-        </p>
+        <Alert role="status" className={messageClassName}>
+          <AlertDescription>{DECODE_NOTICE_TEXT}</AlertDescription>
+        </Alert>
       ) : null}
 
       {copyStatus === "failed" ? (
-        <p className="message message-error" role="alert">
-          コピーできませんでした: クリップボードが利用できないか、ブラウザに拒否されました。
-          出力を選択して手動でコピーしてください。
-        </p>
+        <Alert variant="destructive" className={messageClassName}>
+          <AlertDescription className={descriptionClassName}>
+            コピーできませんでした: クリップボードが利用できないか、ブラウザに拒否されました。
+            出力を選択して手動でコピーしてください。
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {failure !== null ? (
-        <div className="message message-error" role="alert">
-          <strong>{failureTitle(failure)}</strong>
-          {location !== null ? <span> ({location})</span> : null}
-          <p>{failure.message}</p>
-          {result?.decoded === true ? <p>{DECODE_NOTICE_TEXT}</p> : null}
-          <p>入力は変更されていません。</p>
-        </div>
+        <Alert variant="destructive" className={messageClassName}>
+          <AlertTitle>
+            {failureTitle(failure)}
+            {location !== null ? <span> ({location})</span> : null}
+          </AlertTitle>
+          <AlertDescription className={descriptionClassName}>
+            <p>{failure.message}</p>
+            {result?.decoded === true ? <p>{DECODE_NOTICE_TEXT}</p> : null}
+            <p>入力は変更されていません。</p>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {warnings.length > 0 ? (
-        <div className="message message-warning" role="status">
-          <strong>
+        <Alert role="status" className={`${messageClassName} border-[#b26a00]`}>
+          <AlertTitle>
             {warnings.length === 1
               ? "重複キーの警告が 1 件あります"
               : `重複キーの警告が ${warnings.length} 件あります`}
-          </strong>
-          <p>すべてのキーは元の順序のまま出力に残ります。</p>
-          <ul>
-            {warnings.map((warning) => (
-              <li key={warning.offset}>
-                {warning.line} 行目、{warning.column} 列目
-                {result?.decoded === true ? " (デコード後のテキスト)" : ""}: {warning.message}
-              </li>
-            ))}
-          </ul>
-        </div>
+          </AlertTitle>
+          <AlertDescription className={descriptionClassName}>
+            <p>すべてのキーは元の順序のまま出力に残ります。</p>
+            <ul className="mt-2 list-disc pl-5">
+              {warnings.map((warning) => (
+                <li key={warning.offset}>
+                  {warning.line} 行目、{warning.column} 列目
+                  {result?.decoded === true ? " (デコード後のテキスト)" : ""}: {warning.message}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="field">
-        <label htmlFor="json-output">出力 (読み取り専用)</label>
-        <textarea
+      <div className="grid gap-1.5">
+        <Label htmlFor="json-output" className="font-semibold">
+          出力 (読み取り専用)
+        </Label>
+        <Textarea
           id="json-output"
-          className="code-area"
+          className={codeAreaClassName}
           value={output}
           readOnly
           spellCheck={false}

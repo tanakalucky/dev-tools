@@ -3,7 +3,7 @@
 JSON 整形・圧縮・検証ツール(`/json`)の機能一式。feature 間・app との依存ルールは
 [features/README.md](../README.md) とルート [README.md](../../README.md) を参照する。
 
-- `components/` - JSON ツールの UI(クライアントコンポーネント `json-tool.tsx`)。
+- `components/` - JSON ツールの UI(クライアントコンポーネント `json-tool.tsx`)。共有の `@/components/ui` の部品を使う。
 - `lib/` - React・DOM・ネットワークに依存しない純粋な JSON 処理。公開入口は `lib/index.ts`。
   入力サイズ上限 `size-limit.ts` もここに置く。React/UI への import は
   [oxlint-boundaries](../../tools/oxlint-boundaries/README.md) が検査する。

@@ -48,6 +48,7 @@ const M = {
   sharedToUpper: "shared は app / features に依存できません",
   libUi: "features/*/lib は同 feature の UI(components/hooks/tsx)に依存できません",
   alias: (s: string) => `未知のエイリアスまたは絶対パス "${s}" は禁止です(resolver 未対応)`,
+  outsideRoot: (s: string) => `プロジェクトルート外への import "${s}" は禁止です`,
   uiPkg: (s: string) => `features/*/lib は React/UI パッケージ "${s}" に依存できません`,
 };
 
@@ -55,10 +56,12 @@ type Expected = [line: number, column: number, message: string];
 
 const invalid: Record<string, Expected[]> = {
   "app/invalid-alias.ts": [
-    [1, 1, M.alias("@/x")],
-    [2, 1, M.alias("~/x")],
-    [3, 1, M.alias("#x")],
-    [4, 1, M.alias("/abs/x")],
+    [1, 1, M.alias("~/x")],
+    [2, 1, M.alias("#x")],
+    [3, 1, M.alias("/abs/x")],
+    [4, 1, M.outsideRoot("@/../outside")],
+    [5, 1, M.alias("@//x")],
+    [6, 1, M.alias("@")],
   ],
   "app/invalid-dynamic.ts": [
     [3, 18, M.nonLiteral],
@@ -74,6 +77,8 @@ const invalid: Record<string, Expected[]> = {
     [6, 1, M.sharedToUpper],
     [7, 18, M.sharedToUpper],
     [8, 17, M.sharedToUpper],
+    [9, 1, M.sharedToUpper],
+    [10, 1, M.sharedToUpper],
   ],
   "features/json/components/invalid-feature.ts": [
     [1, 1, M.appFromFeature],
@@ -86,6 +91,8 @@ const invalid: Record<string, Expected[]> = {
     [8, 18, M.otherFeature],
     [9, 17, M.otherFeature],
     [10, 1, M.importEquals],
+    [11, 1, M.appFromFeature],
+    [12, 1, M.otherFeature],
   ],
   "features/json/lib/invalid-ui.ts": [
     [1, 1, M.uiPkg("react")],
@@ -96,6 +103,7 @@ const invalid: Record<string, Expected[]> = {
     [6, 1, "features/*/lib は同 feature の UI(components/hooks/tsx)に依存できません"],
     [7, 1, M.otherFeature],
     [8, 1, M.appFromFeature],
+    [9, 1, M.libUi],
   ],
 };
 
@@ -143,8 +151,8 @@ describe("oxlint-boundaries(実エンジン)", () => {
 
   it("feature→app と feature→別 feature は理由で区別される", () => {
     const rows = actual(fixtureRun, "features/json/components/invalid-feature.ts");
-    expect(rows.filter((r) => r[2] === M.appFromFeature).map((r) => r[0])).toEqual([1]);
-    expect(rows.filter((r) => r[2] === M.otherFeature)).toHaveLength(8);
+    expect(rows.filter((r) => r[2] === M.appFromFeature).map((r) => r[0])).toEqual([1, 11]);
+    expect(rows.filter((r) => r[2] === M.otherFeature)).toHaveLength(9);
   });
 });
 

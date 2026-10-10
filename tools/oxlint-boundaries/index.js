@@ -24,7 +24,9 @@ export function check(fromRel, spec) {
   if (typeof spec !== "string")
     return "非リテラルの import 先は境界対象ディレクトリで禁止されています";
   const isRel = spec.startsWith("./") || spec.startsWith("../") || spec === "." || spec === "..";
-  if (!isRel) {
+  // `@/` はプロジェクトルート相対。`@//x` のような絶対パス風は未知のエイリアスとして扱う。
+  const isAlias = spec.startsWith("@/") && !spec.startsWith("@//");
+  if (!isRel && !isAlias) {
     if (!BARE.test(spec)) {
       return `未知のエイリアスまたは絶対パス "${spec}" は禁止です(resolver 未対応)`;
     }
@@ -33,7 +35,10 @@ export function check(fromRel, spec) {
     }
     return null;
   }
-  const targetRel = path.posix.join(path.posix.dirname(fromRel), spec);
+  // 対象パスの求め方だけが相対と alias で異なり、以降の層判定は共通。
+  const targetRel = isAlias
+    ? path.posix.normalize(spec.slice(2))
+    : path.posix.join(path.posix.dirname(fromRel), spec);
   if (targetRel.startsWith("../") || targetRel === "..") {
     return `プロジェクトルート外への import "${spec}" は禁止です`;
   }

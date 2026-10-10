@@ -6,4 +6,7 @@ export type { T } from "../app/page";
 import type { U } from "../app/page";
 export const d = import("../app/page");
 export type V = import("../app/page").V;
+import f from "@/features/json/lib/a";
+import g from "@/app/page";
 export type { a, U };
+export { f, g };
