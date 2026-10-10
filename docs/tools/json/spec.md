@@ -62,7 +62,7 @@ Exported: `formatJsonEncoded`, `minifyJsonEncoded`, `validateJsonEncoded`, `deco
 - Exactly one layer is removed. A double-encoded string, a normal string, or a scalar is not decoded and behaves as before.
 - Limits: the 1 MiB input check applies to the original input and to the decoded text; the depth and output caps apply to the decoded text.
 - Results carry `decoded: true, layers: 1` (or `decoded: false`). When decoded, failures and duplicate-key warnings use line/column of the **decoded text**, not the original input, and `source` is the decoded text. A malformed decoded container is a failure; there is no fallback and no partial output.
-- Option `{ decodeEncoded: false }` disables decoding. The UI has a checkbox, checked by default, "Decode a JSON string that contains an object or array (1 layer)"; toggling it clears output, notices, errors and copy status. On success the UI shows "Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded text, not your original input." The input textarea is never modified.
+- Option `{ decodeEncoded: false }` disables decoding. UI にはデコードの切り替えチェックボックスがあり、実装では既定でオン。切り替えると出力・通知・エラー・コピー状態を消す。デコードして成功したときは、1 階層だけデコードしたこと、および行番号・列番号が元の入力ではなくデコード後のテキスト基準であることを通知する。通知文の正本は `features/json/components/json-tool.tsx` の定数 `DECODE_NOTICE_TEXT`([実装](../../../features/json/components/json-tool.tsx))。入力 textarea は変更しない。
 - **Unsupported**: raw shell quoting, prompts or prefixes, arbitrary backslash or escape removal, double-encoded or deeper layers, encoded scalars, and any unknown terminal format. Not all terminal pastes are handled; no exact terminal sample was provided.
 
 ## Syntax diagnostics
@@ -106,14 +106,23 @@ Copy writes the output to the system clipboard, only when the user presses the b
 
 ## UI controls
 
-The page has a labelled input textarea ("Input JSON") and a labelled read-only output textarea ("Output (read-only)").
+表示ラベル・ボタン名・チェックボックス名・通知文の正本は実装 [`features/json/components/json-tool.tsx`](../../../features/json/components/json-tool.tsx)(通知文は定数 `DECODE_NOTICE_TEXT`)。この仕様では文言を重複して引用しない。
+
+アクセシビリティ条件:
+
+- 入力 textarea と出力 textarea はそれぞれ明示的な label(アクセシブル名)を持つ。出力は読み取り専用。
+- 操作ボタンは `role="group"` のグループにまとめ、グループにもアクセシブル名を付ける。
+- すべての操作はキーボードだけで行える。
 
 | Control           | Behaviour                                                               | Disabled when      |
 | ----------------- | ----------------------------------------------------------------------- | ------------------ |
-| Format (2 spaces) | Runs `formatJson` on the input and shows the result in the output area. | Input is empty     |
+| Format            | Runs `formatJson` on the input and shows the result in the output area. | Input is empty     |
 | Minify            | Runs `minifyJson` on the input and shows the result in the output area. | Input is empty     |
-| Copy output       | Writes the current output to the clipboard.                             | There is no output |
+| Copy              | Writes the current output to the clipboard.                             | There is no output |
 | Clear             | Empties the input, the output and all messages.                         | Input is empty     |
+| Decode (checkbox) | Switches 1-layer decoding of an encoded container (see above).          | Never              |
+
+- Format は 2 スペースでインデントする。
 
 - Work runs on button press only. Nothing is parsed or formatted while typing.
 - The input is never modified by Format or Minify, and is preserved on failure. Only Clear empties it.
@@ -121,7 +130,8 @@ The page has a labelled input textarea ("Input JSON") and a labelled read-only o
 - Failures appear in a `role="alert"` box with a title, the line and column when the core provides them (`syntax`, `too-deep`), and the core's message. The output area is empty after a failure.
 - Over-cap input is not truncated or blocked while typing or pasting; pressing Format or Minify reports the `too-large` failure with the actual byte count and the limit.
 - Duplicate-key warnings are listed with line and column below the controls; the output still contains every key.
-- "Copied" is shown only after the clipboard write resolves. If the clipboard API is missing or the write is rejected, a visible `role="alert"` failure message is shown instead.
+- Copy の成功表示は、クリップボード書き込みが成功した後にのみ出す。古い非同期の書き込み結果が新しい状態を上書きしない(最新の要求だけが状態を持つ。入力編集・Clear・再実行の後に古い書き込みが解決しても状態を出さない)。
+- The success state is shown only after the clipboard write resolves. If the clipboard API is missing or the write is rejected, a visible `role="alert"` failure message is shown instead.
 - Success and copy status use a `role="status"` live region. Controls are native buttons with a visible focus outline, and the layout wraps on narrow screens.
 
 ## Browser tests
