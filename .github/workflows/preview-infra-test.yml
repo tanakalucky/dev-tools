@@ -1,0 +1,37 @@
+# preview 基盤そのもののテスト。secret は使わない。
+name: preview-infra-test
+
+on:
+  pull_request:
+    paths:
+      - ".github/preview/**"
+      - ".github/workflows/preview-*.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/preview/**"
+      - ".github/workflows/preview-*.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 依存関係のインストール
+        working-directory: .github/preview
+        run: npm ci --ignore-scripts
+
+      - name: テスト(削除経路をループバックの模擬 API で確認)
+        working-directory: .github/preview
+        run: npm test
