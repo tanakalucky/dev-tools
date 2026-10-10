@@ -17,7 +17,8 @@ const ACCOUNT = "0123456789abcdef0123456789abcdef";
 const PREVIEWS = `/client/v4/accounts/${ACCOUNT}/workers/workers/dev-tools/previews/`;
 
 // 受け取ったリクエストの method と path だけを記録し、status で応答する模擬 API。
-async function startMockApi(status) {
+// 失敗時の error は code と message を指定できる(既定は code 10000)。
+async function startMockApi(status, error = { code: 10000, message: "mock error" }) {
   const requests = [];
   const server = http.createServer((req, res) => {
     requests.push({ method: req.method, path: req.url });
@@ -28,7 +29,7 @@ async function startMockApi(status) {
       res.end(
         JSON.stringify({
           success: ok,
-          errors: ok ? [] : [{ code: 10000, message: "mock error" }],
+          errors: ok ? [] : [error],
           messages: [],
           result: ok ? null : undefined,
         }),
@@ -120,6 +121,49 @@ for (const name of ["feat/json-formatter", "fix#12", "main"]) {
 for (const name of ["", ".", "..", "-x", "a/../b", "@{-1}", "a b"]) {
   test(`名前検査は ${JSON.stringify(name)} を拒否する`, () => {
     assert.equal(runCheck(name).status, 1);
+  });
+}
+
+test("Preview が存在しない(404 + code 10025)場合は片付け済みとして 0 で終了する", async () => {
+  const api = await startMockApi(404, { code: 10025, message: "Preview not found." });
+  try {
+    const { code, output, blocked } = await runDelete(api.base, "already-gone");
+    assert.equal(code, 0, output);
+    assert.match(output, /片付け済み/);
+    assert.equal(blocked, "", "ループバック以外への接続が試みられた");
+    assert.deepEqual(
+      api.requests.filter((r) => r.method !== "GET"),
+      [{ method: "DELETE", path: PREVIEWS + "already-gone" }],
+    );
+  } finally {
+    api.server.close();
+  }
+});
+
+for (const [label, status, error] of [
+  ["認証失敗(401 + code 10000)", 401, { code: 10000, message: "Authentication error" }],
+  ["認証失敗(403 + code 10000)", 403, { code: 10000, message: "Authentication error" }],
+  ["ほかの error(500 + code 10001)", 500, { code: 10001, message: "Internal error" }],
+  [
+    "メッセージに 10025 を含むだけで code は別",
+    404,
+    { code: 10000, message: "see 10025 for details" },
+  ],
+]) {
+  test(`${label} は非 0 で失敗のままになる`, async () => {
+    const api = await startMockApi(status, error);
+    try {
+      const { code, output, blocked } = await runDelete(api.base, "some-branch");
+      assert.notEqual(code, 0, output);
+      assert.doesNotMatch(output, /片付け済み/);
+      assert.equal(blocked, "", "ループバック以外への接続が試みられた");
+      assert.deepEqual(
+        api.requests.filter((r) => r.method !== "GET"),
+        [{ method: "DELETE", path: PREVIEWS + "some-branch" }],
+      );
+    } finally {
+      api.server.close();
+    }
   });
 }
 
