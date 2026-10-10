@@ -49,15 +49,11 @@ deploy と cleanup は同じ concurrency group(`preview-<ブランチ名>`)で�
 head SHA がこの run のものと一致することを確認する。一致しなければ deploy しない。
 GitHub は同じ group の待機中 run を新しい run で置き換えることがある。その場合は手動で片付ける。
 
-## 有効化スイッチ
+## 有効化
 
-どちらも repository variable で、既定は off。有効化はこの PR では実施しない。
-有効化は cleanup → deploy の順に行い、作られた Preview を消せない期間を作らない。
-
-- `PREVIEW_CLEANUP_ENABLED` が `true` のときだけ `preview-cleanup` の job が動く。
-- `PREVIEW_DEPLOY_ENABLED` が `true` のときだけ `preview-deploy` の job が動く。
-
-どちらも repository secret `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` が必要(値の登録はこのリポジトリの外で行う)。
+有効化スイッチは無い。main にマージされた時点で、条件(deploy は同一リポジトリの PR かつ owner 本人の起動・再実行、cleanup は上の表の既存条件)を満たせば動く。
+repository secret `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` が必要(値の登録はこのリポジトリの外で行う)。
+止めたいときは、GitHub の Actions 画面で該当 workflow を disable するか、secret を外す。
 
 ## 導入順
 

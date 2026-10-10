@@ -20,7 +20,6 @@ jobs:
   deploy:
     # owner 本人が起動・再実行した、同一リポジトリの PR だけ動く。PR 作者名や commit author は見ない。
     if: >-
-      vars.PREVIEW_DEPLOY_ENABLED == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
