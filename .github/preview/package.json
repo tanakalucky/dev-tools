@@ -1,0 +1,11 @@
+{
+  "name": "preview-infra",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"lib/*.test.mjs\""
+  },
+  "devDependencies": {
+    "cf": "1.0.0-beta.14"
+  }
+}

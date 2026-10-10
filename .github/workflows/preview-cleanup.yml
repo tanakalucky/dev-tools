@@ -1,0 +1,81 @@
+# preview の片付け。pull_request_target で動くため、PR のコードは checkout も実行もしない。
+# checkout は既定 ref(base 側)だけで、ref に PR 由来の値を渡してはならない。
+name: preview-cleanup
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 片付ける PR の番号
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: preview-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: vars.PREVIEW_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PREVIEW_ENABLED: ${{ vars.PREVIEW_DEPLOY_ENABLED }}
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+      PREVIEW_HELPER: ${{ github.workspace }}/.github/preview
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 判定(PR を API で取り直す)
+        id: decide
+        run: node "$PREVIEW_HELPER/bin/preview.mjs" decide-cleanup
+
+      - name: skip の理由
+        if: steps.decide.outputs.action != 'delete'
+        env:
+          REASON: ${{ steps.decide.outputs.reason }}
+        run: echo "skip - $REASON"
+
+      - name: helper の依存関係をインストール
+        if: steps.decide.outputs.action == 'delete'
+        working-directory: .github/preview
+        run: npm ci --ignore-scripts
+
+      - name: 名前の検査
+        if: steps.decide.outputs.action == 'delete'
+        env:
+          WORKER_NAME: ${{ steps.decide.outputs.name }}
+        run: node "$PREVIEW_HELPER/bin/preview.mjs" assert-name
+
+      - name: 削除
+        if: steps.decide.outputs.action == 'delete'
+        working-directory: ${{ runner.temp }}
+        env:
+          WORKER_NAME: ${{ steps.decide.outputs.name }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_SEND_TELEMETRY: "false"
+          DO_NOT_TRACK: "1"
+        run: node "$PREVIEW_HELPER/node_modules/cf/bin/cf" workers delete "$WORKER_NAME" --force
+
+      - name: 失敗時の手動再実行の案内
+        if: failure()
+        run: |
+          {
+            echo "### 削除に失敗しました"
+            echo "存在しない Worker の削除の挙動は未確認のため、成功扱いにしていません。"
+            echo "Actions の preview-cleanup を workflow_dispatch で、pr_number を指定して再実行してください。"
+          } >> "$GITHUB_STEP_SUMMARY"
