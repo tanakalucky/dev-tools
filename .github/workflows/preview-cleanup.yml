@@ -1,0 +1,87 @@
+# Worker Preview の片付け。作成・更新は Workers Builds(Cloudflare 側)が行い、ここでは削除だけを行う。
+# pull_request_target で動くため、PR のコードは checkout も実行もしない。
+# checkout は既定 ref(base 側)の .github/preview だけで、ref に PR 由来の値を渡してはならない。
+name: preview-cleanup
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 片付ける Preview のブランチ名(Preview 名と同じ)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: preview-cleanup-${{ github.event.pull_request.head.ref || inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    # fork の PR は対象外。同名ブランチの Preview を消さないため、secret を使う step に到達させない。
+    # 手動実行は既定ブランチの定義からだけ受け付ける(別ブランチで変えた削除処理に secret を渡さない)。
+    if: >-
+      vars.PREVIEW_CLEANUP_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' &&
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+       (github.event_name == 'pull_request_target' &&
+        github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Preview 名はブランチ名そのもの。Workers Builds の cf previews deploy も同じ値(WORKERS_CI_BRANCH)を使う。
+      PREVIEW_NAME: ${{ github.event.pull_request.head.ref || inputs.branch }}
+    steps:
+      - name: 同じブランチの open な PR が残っていないか確認
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          open_count=$(gh api -X GET "repos/$REPO/pulls" -f state=open -f head="$OWNER:$PREVIEW_NAME" --jq length)
+          if [ "$open_count" != "0" ]; then
+            echo "open な PR が残っているため削除しません($open_count 件)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=delete" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.action == 'delete'
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/preview
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.action == 'delete'
+        with:
+          node-version: 24
+
+      - name: 削除ツール(版固定の wrangler)のインストール
+        if: steps.guard.outputs.action == 'delete'
+        working-directory: .github/preview
+        run: npm ci --ignore-scripts
+
+      - name: Preview の削除
+        if: steps.guard.outputs.action == 'delete'
+        # wrangler 設定の無い場所で実行する。名前の検査と対象 Worker の固定は delete-preview.sh が行う。
+        working-directory: ${{ runner.temp }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: '"$GITHUB_WORKSPACE/.github/preview/delete-preview.sh"'
+
+      - name: 失敗時の手動再実行の案内
+        if: failure()
+        run: |
+          {
+            echo "### Preview の削除に失敗しました"
+            echo "存在しない Preview の削除も失敗になります(成功扱いにしていません)。"
+            echo "Actions の preview-cleanup を workflow_dispatch で、branch にブランチ名を指定して再実行してください。"
+          } >> "$GITHUB_STEP_SUMMARY"
