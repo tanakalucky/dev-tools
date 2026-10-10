@@ -7,7 +7,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -102,6 +102,24 @@ for (const name of ["..", ".", "-x", "a/../b"]) {
     } finally {
       api.server.close();
     }
+  });
+}
+
+// deploy と削除が共有する名前検査(check-preview-name.sh)を直接呼ぶ表テスト。
+const checkScript = path.join(here, "check-preview-name.sh");
+function runCheck(name) {
+  return spawnSync("bash", [checkScript, name], { encoding: "utf8", timeout: 30_000 });
+}
+
+for (const name of ["feat/json-formatter", "fix#12", "main"]) {
+  test(`名前検査は ${name} を受理する`, () => {
+    assert.equal(runCheck(name).status, 0);
+  });
+}
+
+for (const name of ["", ".", "..", "-x", "a/../b", "@{-1}", "a b"]) {
+  test(`名前検査は ${JSON.stringify(name)} を拒否する`, () => {
+    assert.equal(runCheck(name).status, 1);
   });
 }
 
