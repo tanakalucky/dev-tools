@@ -7,13 +7,14 @@ This file is behavioral guidance, not a permission boundary.
 ## Status
 
 - Implemented: the JSON formatter UI and pure core, at `/` (tool list) and `/json`. Spec: [docs/tools/json/spec.md](docs/tools/json/spec.md).
-- 最新の CI 証拠(歴史的): 公開コミット f07c94044294c21bf628d7810d49292b5a1e3b48 で unit 156 と実 Chromium E2E 17 が CI で成功した。そのコミットのみの証拠。
-- 現在の構成移行と境界 lint の変更はローカル検証のみ: unit 177 件、typecheck / lint / fmt:check / build は成功。E2E は 17 件の列挙のみで本体は未実行。実 CI 待ち。
+- CI 事実 1(従前): コミット f07c94044294c21bf628d7810d49292b5a1e3b48 で unit 156 と実 Chromium E2E 17 が成功した。
+- CI 事実 2(今回): 公開 head 369913cb5fef0569d9f91f46d9e9ad72c32b044d(run 38026672615)で unit 177、typecheck、lint、fmt、build は成功。実 Chromium E2E は 17 件中 15 成功・2 失敗(デコード通知の exact 一致。原因は JSX 行またぎの余計な空白)。
+- 通知文言の修正はローカル検証のみで、新しい CI 待ち。CI が全成功したとは書かない。
 - Local browser E2E startup remains blocked by an environment error: `uv_interface_addresses returned Unknown system error 1`, raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin` when the dev server starts. Cloudflare behaviour is not bypassed.
 - Separate from that: a build warning that `react-server-dom-webpack/static.edge` (and its `package.json`) cannot be resolved. plugin-rsc 0.5.36 marks it an optional peer and vendors its own copy (`dist/vendor/react-server-dom`), using the external package only when installed, so it is deliberately not added. The warning was nonfatal in CI and remains deliberately unaddressed; it is a different issue from the browser-startup error.
 - Review status: **1 of 3 review rounds consumed**. Historical round 1 (external, three perspectives) was explicitly adopted into the external review ledger and remains recorded as historical_unverified, with no fabricated approval. Review round 2 is pending and not started. The change is not approved.
 - The Node minimum version (22.12) is declared in the docs, not tested as a version matrix.
-- CI: `.github/workflows/ci.yml` は上記の歴史的コミットで成功した。以降の変更は CI で観測されるまで証拠に数えない。
+- CI: `.github/workflows/ci.yml` の結果は上記 2 件。以降の変更は CI で観測されるまで成功に数えない。import 依存の機械検査仕様は [tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md) が正本。
 - Deployment and preview are not implemented and not authorized in this phase. The owner supplies and configures the Cloudflare GitHub Secrets themselves. No site is live.
 - Encoded JSON (implemented, conservative): input that is exactly one JSON string literal whose content starts with `{` or `[` is decoded by exactly one layer (`features/json/lib/encoded.ts`), then formatted by the normal token-preserving path; opt-out checkbox in the UI. Ordinary JSON strings remain strings. No exact terminal sample was provided, so other formats (shell quoting, prompts/prefixes, double-encoding, encoded scalars, arbitrary backslash removal) remain unsupported.
 - Never invent commands; add commands here only after they exist and have been run. Scripts that exist: `npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, `npm run fmt:check`, `npm run format`, `npm run build`, `npm run dev`.

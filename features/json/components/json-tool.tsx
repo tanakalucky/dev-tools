@@ -6,6 +6,10 @@ import { MAX_INPUT_BYTES } from "../lib/size-limit";
 
 type CopyStatus = "idle" | "copied" | "failed";
 
+// JSX の行またぎテキストは空白 1 つで連結されるため、単一の文字列として保持する。
+const DECODE_NOTICE_TEXT =
+  "JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、デコード後のテキストを指します。";
+
 function failureTitle(failure: JsonFailure): string {
   switch (failure.kind) {
     case "too-large":
@@ -167,8 +171,7 @@ export function JsonTool() {
 
       {result?.decoded === true && result.ok ? (
         <p className="message" role="status">
-          JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、
-          デコード後のテキストを指します。
+          {DECODE_NOTICE_TEXT}
         </p>
       ) : null}
 
@@ -184,12 +187,7 @@ export function JsonTool() {
           <strong>{failureTitle(failure)}</strong>
           {location !== null ? <span> ({location})</span> : null}
           <p>{failure.message}</p>
-          {result?.decoded === true ? (
-            <p>
-              JSON 文字列エンコードを 1 階層デコードしました。行番号と列番号は元の入力ではなく、
-              デコード後のテキストを指します。
-            </p>
-          ) : null}
+          {result?.decoded === true ? <p>{DECODE_NOTICE_TEXT}</p> : null}
           <p>入力は変更されていません。</p>
         </div>
       ) : null}

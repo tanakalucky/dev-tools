@@ -4,15 +4,17 @@ Browser-only developer utilities. Tool input is processed locally in the browser
 
 ## Status
 
-Work in progress. **Not deployed and not approved.** ブラウザ E2E は CI の実 Chromium で確認済み(下記の commit のみ。ローカルのブラウザ起動はこの環境ではブロックされている)。
+Work in progress. **Not deployed and not approved.** ローカルのブラウザ起動はこの環境ではブロックされている。
 
 - Implemented: a JSON formatter at `/` and `/json` (format with 2 spaces, minify, validate, duplicate-key warnings, copy, clear). See [docs/tools/json/spec.md](docs/tools/json/spec.md).
-- 最新の CI 証拠(歴史的): 公開コミット f07c94044294c21bf628d7810d49292b5a1e3b48 で unit 156 と実 Chromium E2E 17 が CI で成功した。この証拠はそのコミットのみに対するもの。
-- 現在の作業ツリー(ディレクトリ構成移行と境界 lint の変更)はローカル検証のみ: unit 177 件、typecheck / lint / fmt:check / build は成功。E2E は 17 件の列挙のみで本体は未実行。実 CI は未確認で、CI で観測されるまで証拠として数えない。
+- CI 事実 1(従前): コミット f07c94044294c21bf628d7810d49292b5a1e3b48 で unit 156 と実 Chromium E2E 17 が成功した。
+- CI 事実 2(今回): 公開 head 369913cb5fef0569d9f91f46d9e9ad72c32b044d(run 38026672615)で unit 177、typecheck、lint、fmt、build は成功。実 Chromium E2E は 17 件中 15 成功・2 失敗(デコード通知の exact 一致。JSX の行またぎで余計な空白が入ったのが原因)。
+- 通知文言の修正はローカル検証のみで、新しい CI の結果待ち。CI が全成功したとは言えない。
 - ローカルのブラウザ起動はこの環境ではブロックされている(`@cloudflare/vite-plugin` 内の `os.networkInterfaces` エラー)。未解決の optional peer(`react-server-dom-webpack/static.edge`)の警告は別件で、`@vitejs/plugin-rsc` が自前のコピーを同梱するためパッケージは意図的に追加していない。
 - CI: `.github/workflows/ci.yml`(unit、typecheck、lint、format check、build、Node 24 での Playwright E2E、read-only 権限、secrets なし)。
 - Review: 1 of 3 rounds consumed (external, historical_unverified, no approval); round 2 is pending and not started.
-- Encoded JSON (conservative): pasting a JSON string literal whose content is an object or array, e.g. `"{\"a\":1}"`, is decoded by exactly one layer and formatted; large numbers, key order, duplicate keys and inner escapes are preserved. Line and column numbers then refer to the decoded text, and a checkbox (on by default) turns decoding off. Limits (1 MiB input, depth, output) apply to the original and decoded text. Unsupported: raw shell quoting, prompts or prefixes, arbitrary backslash removal, double-encoded or deeper layers, encoded scalars, unknown terminal formats. Ordinary JSON strings remain strings. No exact terminal sample was provided, so not all terminal pastes are handled.- Not done, not authorized in this phase: deployment and preview. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers; nothing is live.
+- Encoded JSON (conservative): pasting a JSON string literal whose content is an object or array, e.g. `"{\"a\":1}"`, is decoded by exactly one layer and formatted; large numbers, key order, duplicate keys and inner escapes are preserved. Line and column numbers then refer to the decoded text, and a checkbox (on by default) turns decoding off. Limits (1 MiB input, depth, output) apply to the original and decoded text. Unsupported: raw shell quoting, prompts or prefixes, arbitrary backslash removal, double-encoded or deeper layers, encoded scalars, unknown terminal formats. Ordinary JSON strings remain strings. No exact terminal sample was provided, so not all terminal pastes are handled.
+- Not done, not authorized in this phase: deployment and preview. The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers; nothing is live.
 
 ## Setup
 
@@ -49,14 +51,12 @@ There is no deploy command yet.
 - `tools/oxlint-boundaries/` - 層境界を検査するローカル oxlint JS プラグイン(alpha・semver 保証なし)。詳細は [tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md)。設定は `.oxlintrc.json`。
 - ルート直下の `components/` `lib/` `hooks/` は、複数機能で本当に共有するものが出た時だけ作る(現在は無し)。
 
-### 依存ルール(このルート README が所有)
+### 依存ルール(責務と設計意図)
 
-- `app` は `features` と共有コードを import してよい。
-- feature は `app` と別の feature を import しない。
-- 共有コードは `app` と `features` を import しない。
-- `features/*/lib` は React や UI を import しない。
-- テストは対象ファイルの隣に置く。
-- 上記の import 依存ルールはローカル oxlint プラグイン(`npm run lint`)で検査する。実装済みだが CI では未実行(上記 Status 参照)。テストの隣置きはレビューで確認する。
+- 依存の向きは一方向。`app` は `features` と共有コード(ルートの `components/` `lib/` `hooks/`)の両方を直接使ってよく、`features` も共有コードを使ってよい。逆向きと feature 同士の依存は避け、feature は互いに独立させる。
+- `features/*/lib` は React / DOM / network に依存しない純粋処理を置く場所。
+- テストは対象ファイルの隣に置く(レビューで確認する)。
+- import の依存禁止は機械検査される。機械実行の正本は [index.js](tools/oxlint-boundaries/index.js)、`.oxlintrc.json`、`tools/oxlint-boundaries/fixtures/` とテスト(`index.test.ts`)で、`npm run lint` で実行する。[tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md) は検証済みの範囲と限界の説明であり、正本そのものではない。DOM/network 非依存など lint が見ない純粋性は検査されない。
 
 - `e2e/` - Playwright browser tests (`*.pw.ts`), configured in `playwright.config.ts`.
 - `docs/tools/<tool>/` - per-tool specs. Currently: [JSON](docs/tools/json/spec.md).

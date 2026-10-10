@@ -128,7 +128,7 @@ The page has a labelled input textarea ("Input JSON") and a labelled read-only o
 
 `npm run test:e2e` runs the Playwright tests in `e2e/json.pw.ts` against `npm run dev` on `127.0.0.1:43173`, in Chromium only. Prerequisite: a Playwright Chromium build (`npx playwright install chromium`). The `.pw.ts` suffix keeps these files out of the vitest run.
 
-The 13 tests use synthetic input only and cover:
+The 17 tests use synthetic input only and cover:
 
 - Home page link to `/json`, the accessible names of the fields and buttons, and keyboard-only use at a 360x640 viewport.
 - Format with 2 spaces keeping `9007199254740993` exactly, with the input unchanged.
@@ -140,18 +140,24 @@ The 13 tests use synthetic input only and cover:
 - Hydration readiness: tests wait for `data-hydrated="true"` on the tool container, which reads the page only and never clears input, before typing and before the post-reload persistence assertions.
 - Privacy: a sentinel typed after page load does not appear in any request, WebSocket frame, `localStorage`, `sessionStorage`, cookie or the URL, and is gone after reload.
 
-Playwright discovers 17 cases (`npx playwright test --list`). Real browser evidence exists only for the earlier commit `16d94360e590265fc99db8ac7202ad558fbae32a` (GitHub Actions run 38021075480, job 114121976045): 133 unit tests, all gates, and 13 real Chromium E2E passes (17.1 s). The newly added E2E cases (including the escaped-input ones) have NOT been executed in a browser and await CI. Local browser/server execution is environment-blocked: the dev server cannot start (`uv_interface_addresses returned Unknown system error 1`, raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`).
+Playwright は 17 件を検出する (`npx playwright test --list`)。実 CI の事実は 2 つに分けて扱う。
+
+- コミット `f07c94044294c21bf628d7810d49292b5a1e3b48`: unit 156 件と実 Chromium E2E 17 件がすべて成功した。
+- 公開 head `369913cb5fef0569d9f91f46d9e9ad72c32b044d` (run 38026672615): unit 177 件、typecheck、lint、fmt、build は成功。実 Chromium E2E は 17 件中 15 件成功、2 件失敗 (`e2e/json.pw.ts` のデコード通知の `exact` 一致)。原因は JSX の行またぎで通知文に余計な空白が入っていたこと。
+- 通知の修正はローカル検証のみで、新しい CI の結果は未確認 (CI 待ち)。CI が全成功したとは主張しない。
+
+ローカルでのブラウザ/サーバー実行は環境上ブロックされている: dev server が起動できない (`uv_interface_addresses returned Unknown system error 1`、`@cloudflare/vite-plugin` 内の `os.networkInterfaces()` が発生源)。
 
 Separate and distinct: the build warns that `react-server-dom-webpack/static.edge` (and its `package.json`) cannot be resolved; plugin-rsc 0.5.36 marks it an optional peer. That warning is not the browser-startup error.
 
-Last verified locally: 156 unit tests passing (`npm run test`); typecheck, lint, fmt:check and the production build pass. The Node minimum (22.12) is declared, not tested as a version matrix.
+Last verified locally: 177 unit tests passing (`npm run test`); typecheck, lint, fmt:check and the production build pass. The Node minimum (22.12) is declared, not tested as a version matrix.
 
 ## Still pending
 
 None of the following has been done. This spec makes no claim of a reviewed or deployed MVP.
 
-- **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)); passing Chromium runs are recorded only for the earlier commit above, not for the newly added cases. Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
+- **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)); 実 Chromium は f07c940 で 17 件成功、head 369913c で 15 件成功・2 件失敗 (上記)。修正後の CI は待ち。Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
 - **Independent reviews: 1 of 3 rounds consumed.** Round 1 was explicitly adopted into the plugin review ledger as historical_unverified, with no synthetic clean reviews and no approval. Its P1 findings remain unresolved pending independent review round 2, which has not started. Not approved. The requested project `.claude` files remain blocked/pending; the plugin did not implement them.
-- **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) has run only on the earlier commit above; later commits count only once observed on an exact commit. The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
-- **Escaped/terminal JSON handling: conservative subset implemented** (see [Encoded JSON containers](#encoded-json-containers)). No exact terminal sample was provided, so other formats remain unsupported. The new Playwright tests await CI (not executed in a browser).
+- **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) は上記の実行で観測済み。以後のコミットは正確なコミットで観測されるまで成功とみなさない。 The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
+- **Escaped/terminal JSON handling: conservative subset implemented** (see [Encoded JSON containers](#encoded-json-containers)). No exact terminal sample was provided, so other formats remain unsupported. escaped 入力の E2E は実 Chromium で実行済み (15/17 成功、失敗 2 件は通知文言で、修正は CI 待ち)。
 - **Cleanup of coexisting partial core modules: STILL PENDING.** `features/json/lib/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.

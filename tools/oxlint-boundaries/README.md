@@ -1,6 +1,6 @@
 # oxlint-boundaries
 
-層の依存方向を検査するローカル oxlint JS プラグイン。規則本体はルート [README.md](../../README.md) の「依存ルール」が所有し、ここでは複製しない。
+層の依存方向を検査するローカル oxlint JS プラグイン。フォルダの責務と依存方向の設計意図はルート [README.md](../../README.md) の「依存ルール」にある。機械実行の正本は `index.js`、ルート `.oxlintrc.json`、fixtures とテスト(`index.test.ts`)で、この README は検証済みの範囲と限界の説明であり、正本そのものではない(禁止事項はここでは複製しない)。
 
 - 有効化: ルート `.oxlintrc.json` の `jsPlugins`(ルール `boundaries/import-boundary` は error)。
 - 検査対象: `app/`、`features/*/`、ルート直下の `components/` `lib/` `hooks/` のファイル。
