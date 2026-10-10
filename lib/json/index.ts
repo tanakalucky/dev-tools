@@ -16,6 +16,14 @@ import {
 } from "./types";
 
 export { MAX_DEPTH, MAX_OUTPUT_LENGTH } from "./types";
+export {
+  MAX_WRAPPER_LAYERS,
+  decodeEncodedContainer,
+  formatJsonEncoded,
+  minifyJsonEncoded,
+  validateJsonEncoded,
+} from "./encoded";
+export type { DecodeMarker, DecodeOptions, EncodedResult, EncodedValidation } from "./encoded";
 export type {
   DuplicateKeyWarning,
   JsonFailure,

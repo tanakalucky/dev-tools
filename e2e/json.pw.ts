@@ -117,6 +117,13 @@ test("home links to the JSON tool, which is labelled and keyboard-operable on a 
   await input.focus();
   await page.keyboard.type("[1,2]");
   await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Decode a JSON string that contains an object or array (1 layer)",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(format).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(output).toHaveValue("[\n  1,\n  2\n]");
@@ -412,6 +419,86 @@ test("copy (stubbed clipboard contract): reformat and minify while a write is pe
   await settleClipboard(page, "resolve", 2);
   await expect(page.getByText(COPIED_TEXT, { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+const DECODE_NOTICE =
+  "Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded text, not your original input.";
+const DECODE_LABEL = "Decode a JSON string that contains an object or array (1 layer)";
+
+test("encoded JSON object is decoded with a visible notice and the input is untouched", async ({
+  page,
+}) => {
+  const { input, output, format } = await openJsonTool(page);
+  const source = String.raw`"{\"n\":9007199254740993,\"s\":\"a\\\\b\"}"`;
+
+  await input.fill(source);
+  await format.click();
+
+  await expect(output).toHaveValue(String.raw`{
+  "n": 9007199254740993,
+  "s": "a\\b"
+}`);
+  await expect(page.getByText(DECODE_NOTICE, { exact: true })).toBeVisible();
+  await expect(input).toHaveValue(source);
+});
+
+test("an ordinary JSON string stays a string with no decode notice", async ({ page }) => {
+  const { input, output, format } = await openJsonTool(page);
+
+  await input.fill('"hello"');
+  await format.click();
+
+  await expect(output).toHaveValue('"hello"');
+  await expect(page.getByText(DECODE_NOTICE, { exact: true })).toHaveCount(0);
+});
+
+test("a malformed encoded container reports a decoded-text error and keeps the input", async ({
+  page,
+}) => {
+  const { input, output, format } = await openJsonTool(page);
+  const source = String.raw`"{\n\"a\" 1}"`;
+  const alert = page.getByRole("alert");
+
+  await input.fill(source);
+  await format.click();
+
+  await expect(alert).toContainText("Invalid JSON");
+  await expect(alert).toContainText("(Line 2, column 5)");
+  await expect(alert).toContainText("refer to the decoded text");
+  await expect(output).toHaveValue("");
+  await expect(input).toHaveValue(source);
+});
+
+test("unchecking the decode option and editing input clear stale decode state", async ({
+  page,
+}) => {
+  const { input, output, format } = await openJsonTool(page);
+  const option = page.getByRole("checkbox", { name: DECODE_LABEL, exact: true });
+  const source = String.raw`"{\"a\":1}"`;
+  const notice = page.getByText(DECODE_NOTICE, { exact: true });
+
+  await expect(option).toBeChecked();
+  await input.fill(source);
+  await format.click();
+  await expect(notice).toBeVisible();
+
+  await option.uncheck();
+  await expect(output).toHaveValue("");
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByText(COPIED_TEXT)).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+
+  await format.click();
+  await expect(output).toHaveValue(source);
+  await expect(notice).toHaveCount(0);
+
+  await option.check();
+  await format.click();
+  await expect(notice).toBeVisible();
+  await input.press("End");
+  await input.pressSequentially(" ");
+  await expect(notice).toHaveCount(0);
+  await expect(output).toHaveValue("");
 });
 
 test("privacy: entered text is not sent, stored, put in the URL, or kept across reload", async ({

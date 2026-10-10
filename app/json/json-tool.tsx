@@ -1,7 +1,12 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
-import { formatJson, minifyJson, type JsonFailure, type JsonResult } from "../../lib/json";
+import {
+  formatJsonEncoded,
+  minifyJsonEncoded,
+  type JsonFailure,
+  type EncodedResult,
+} from "../../lib/json";
 import { MAX_INPUT_BYTES } from "../../lib/size-limit";
 
 type CopyStatus = "idle" | "copied" | "failed";
@@ -40,7 +45,8 @@ function isServer() {
 
 export function JsonTool() {
   const [input, setInput] = useState("");
-  const [result, setResult] = useState<JsonResult | null>(null);
+  const [result, setResult] = useState<EncodedResult | null>(null);
+  const [decodeEncoded, setDecodeEncoded] = useState(true);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   // Bumped whenever the output changes and for every copy attempt, so a slow clipboard write can
   // report neither on stale output nor over a newer attempt on the same output.
@@ -54,10 +60,15 @@ export function JsonTool() {
   const hasInput = input.length > 0;
   const hasOutput = result?.ok === true;
 
-  function invalidate(next: JsonResult | null) {
+  function invalidate(next: EncodedResult | null) {
     copySequence.current += 1;
     setResult(next);
     setCopyStatus("idle");
+  }
+
+  function handleDecodeToggle(checked: boolean) {
+    setDecodeEncoded(checked);
+    invalidate(null);
   }
 
   function handleInputChange(value: string) {
@@ -116,11 +127,30 @@ export function JsonTool() {
         </p>
       </div>
 
+      <div className="field">
+        <label>
+          <input
+            type="checkbox"
+            checked={decodeEncoded}
+            onChange={(event) => handleDecodeToggle(event.target.checked)}
+          />{" "}
+          Decode a JSON string that contains an object or array (1 layer)
+        </label>
+      </div>
+
       <div className="actions" role="group" aria-label="JSON actions">
-        <button type="button" onClick={() => invalidate(formatJson(input))} disabled={!hasInput}>
+        <button
+          type="button"
+          onClick={() => invalidate(formatJsonEncoded(input, { decodeEncoded }))}
+          disabled={!hasInput}
+        >
           Format (2 spaces)
         </button>
-        <button type="button" onClick={() => invalidate(minifyJson(input))} disabled={!hasInput}>
+        <button
+          type="button"
+          onClick={() => invalidate(minifyJsonEncoded(input, { decodeEncoded }))}
+          disabled={!hasInput}
+        >
           Minify
         </button>
         <button type="button" onClick={() => void handleCopy()} disabled={!hasOutput}>
@@ -140,6 +170,13 @@ export function JsonTool() {
           : ""}
       </p>
 
+      {result?.decoded === true && result.ok ? (
+        <p className="message" role="status">
+          Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded
+          text, not your original input.
+        </p>
+      ) : null}
+
       {copyStatus === "failed" ? (
         <p className="message message-error" role="alert">
           Could not copy: the clipboard is unavailable or the browser refused. Select the output and
@@ -152,6 +189,12 @@ export function JsonTool() {
           <strong>{failureTitle(failure)}</strong>
           {location !== null ? <span> ({location})</span> : null}
           <p>{failure.message}</p>
+          {result?.decoded === true ? (
+            <p>
+              Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded
+              text, not your original input.
+            </p>
+          ) : null}
           <p>Your input was left unchanged.</p>
         </div>
       ) : null}
@@ -167,7 +210,8 @@ export function JsonTool() {
           <ul>
             {warnings.map((warning) => (
               <li key={warning.offset}>
-                Line {warning.line}, column {warning.column}: {warning.message}
+                Line {warning.line}, column {warning.column}
+                {result?.decoded === true ? " (decoded text)" : ""}: {warning.message}
               </li>
             ))}
           </ul>

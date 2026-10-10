@@ -1,6 +1,6 @@
 # JSON formatter spec
 
-Status: implemented in code, **not yet accepted**. See [Still pending](#still-pending). Review rounds consumed: 1 of 3 (external); its P1 findings are being addressed and are unresolved until verified; round 2 is pending.
+Status: implemented in code, **not yet accepted**. See [Still pending](#still-pending). Review rounds consumed: 1 of 3 (historical round 1, adopted into the plugin review ledger as historical_unverified); its P1 findings remain unresolved pending independent review round 2, which has not started.
 
 ## Route
 
@@ -50,11 +50,20 @@ Whitespace between tokens is exactly space, tab, `\n` and `\r`. Any other charac
 
 Any single JSON value is accepted at the top level: object, array, string, number, `true`, `false`, `null`. Empty or whitespace-only input is a syntax error (`Empty input: expected a JSON value`).
 
-### Strings stay strings (unwrap is deferred)
+### Strings stay strings
 
-A valid JSON string is formatted as that same string. If the string happens to contain JSON text (for example `"{\"a\":1}"`), it is **not** decoded or unwrapped: there is no unwrap export and no unwrap control. Backslashes are never removed.
+A valid JSON string is formatted as that same string (`"hello"`, `"123"`, `"true"` stay strings). The only exception is an encoded container, below. Backslashes are never removed otherwise.
 
-Likewise there is no cleanup of pasted terminal or shell output (prompts, quoting, escaping). The exact terminal sample this should handle is not yet known, so the behaviour is deferred rather than guessed. Such input currently either formats as the string it literally is, or fails with a syntax error and is left untouched.
+## Encoded JSON containers
+
+Exported: `formatJsonEncoded`, `minifyJsonEncoded`, `validateJsonEncoded`, `decodeEncodedContainer`, `MAX_WRAPPER_LAYERS` (= 1), in `lib/json/encoded.ts`. Existing `formatJson`, `minifyJson`, `validateJson` are unchanged.
+
+- Detection: after trimming JSON whitespace, the whole input is exactly one valid JSON string token, and the decoded text, after trimming JSON whitespace, begins with `{` or `[`. Example: `"{\"a\":1}"` formats as `{ "a": 1 }`. Only the outer string token is passed to `JSON.parse`; the inner text goes through the normal token-preserving path, so large numbers, key order, duplicate keys and inner escapes are preserved.
+- Exactly one layer is removed. A double-encoded string, a normal string, or a scalar is not decoded and behaves as before.
+- Limits: the 1 MiB input check applies to the original input and to the decoded text; the depth and output caps apply to the decoded text.
+- Results carry `decoded: true, layers: 1` (or `decoded: false`). When decoded, failures and duplicate-key warnings use line/column of the **decoded text**, not the original input, and `source` is the decoded text. A malformed decoded container is a failure; there is no fallback and no partial output.
+- Option `{ decodeEncoded: false }` disables decoding. The UI has a checkbox, checked by default, "Decode a JSON string that contains an object or array (1 layer)"; toggling it clears output, notices, errors and copy status. On success the UI shows "Decoded 1 layer of JSON string encoding. Line and column numbers refer to the decoded text, not your original input." The input textarea is never modified.
+- **Unsupported**: raw shell quoting, prompts or prefixes, arbitrary backslash or escape removal, double-encoded or deeper layers, encoded scalars, and any unknown terminal format. Not all terminal pastes are handled; no exact terminal sample was provided.
 
 ## Syntax diagnostics
 
@@ -131,18 +140,18 @@ The 13 tests use synthetic input only and cover:
 - Hydration readiness: tests wait for `data-hydrated="true"` on the tool container, which reads the page only and never clears input, before typing and before the post-reload persistence assertions.
 - Privacy: a sentinel typed after page load does not appear in any request, WebSocket frame, `localStorage`, `sessionStorage`, cookie or the URL, and is gone after reload.
 
-**No passing run is recorded; 0 browser tests have been executed.** Playwright discovers 13 cases (`playwright test --list`). In the environment where the tests were written, the dev server cannot start: `uv_interface_addresses returned Unknown system error 1` (raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`). The tests therefore still need a first run on a machine where `npm run dev` starts.
+Playwright discovers 17 cases (`npx playwright test --list`). Real browser evidence exists only for the earlier commit `16d94360e590265fc99db8ac7202ad558fbae32a` (GitHub Actions run 38021075480, job 114121976045): 133 unit tests, all gates, and 13 real Chromium E2E passes (17.1 s). The newly added E2E cases (including the escaped-input ones) have NOT been executed in a browser and await CI. Local browser/server execution is environment-blocked: the dev server cannot start (`uv_interface_addresses returned Unknown system error 1`, raised from `os.networkInterfaces()` inside `@cloudflare/vite-plugin`).
 
 Separate and distinct: the build warns that `react-server-dom-webpack/static.edge` (and its `package.json`) cannot be resolved; plugin-rsc 0.5.36 marks it an optional peer. That warning is not the browser-startup error.
 
-Last verified: 133 unit tests passing; typecheck, oxlint, oxfmt check and the production build exited 0. The Node minimum (22.12) is declared, not tested as a version matrix.
+Last verified locally: 156 unit tests passing (`npm run test`); typecheck, lint, fmt:check and the production build pass. The Node minimum (22.12) is declared, not tested as a version matrix.
 
 ## Still pending
 
 None of the following has been done. This spec makes no claim of a reviewed or deployed MVP.
 
-- **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)) but have no recorded passing run. Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
-- **Independent reviews: 1 of 3 rounds consumed.** Round 1 was one independent three-perspective review run externally; recording it in the workflow plugin's ledger is pending. Its P1 findings are unresolved until verified. Round 2 is pending. Not approved.
-- **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) is written but not yet run; it only counts once observed on an exact commit. The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
-- **Escaped/terminal JSON handling: OPEN REQUIREMENT, awaiting a sample.** It is not optional and not waived. Until a sample arrives, ordinary JSON strings remain strings (no unwrap), as described above.
+- **Browser acceptance: STILL PENDING.** The UI behaviour above is described from the code. Browser tests exist (see [Browser tests](#browser-tests)); passing Chromium runs are recorded only for the earlier commit above, not for the newly added cases. Also not done: a real OS clipboard write (the tests stub the clipboard), browsers other than Chromium, a screen reader, and a physical mobile device.
+- **Independent reviews: 1 of 3 rounds consumed.** Round 1 was explicitly adopted into the plugin review ledger as historical_unverified, with no synthetic clean reviews and no approval. Its P1 findings remain unresolved pending independent review round 2, which has not started. Not approved. The requested project `.claude` files remain blocked/pending; the plugin did not implement them.
+- **Deployment: NOT DONE, NOT AUTHORIZED in this phase.** Deployment and preview are unimplemented. A CI workflow (`.github/workflows/ci.yml`) has run only on the earlier commit above; later commits count only once observed on an exact commit. The owner supplies and configures the Cloudflare GitHub Secrets. Nothing is live.
+- **Escaped/terminal JSON handling: conservative subset implemented** (see [Encoded JSON containers](#encoded-json-containers)). No exact terminal sample was provided, so other formats remain unsupported. The new Playwright tests await CI (not executed in a browser).
 - **Cleanup of coexisting partial core modules: STILL PENDING.** `lib/json/` contains earlier partial modules (`tokenize.ts`, `validate.ts`, `render.ts`, `limits.ts`) alongside the modules the public API actually uses (`tokenizer.ts`, `grammar.ts`, `pretty.ts`, `minify.ts`, `duplicate-keys.ts`, `position.ts`, `types.ts`, `index.ts`). They have not been removed or reconciled.
