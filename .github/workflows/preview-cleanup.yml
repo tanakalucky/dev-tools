@@ -1,5 +1,6 @@
-# preview の片付け。pull_request_target で動くため、PR のコードは checkout も実行もしない。
-# checkout は既定 ref(base 側)だけで、ref に PR 由来の値を渡してはならない。
+# Worker Preview の片付け。作成・更新は Workers Builds(Cloudflare 側)が行い、ここでは削除だけを行う。
+# pull_request_target で動くため、PR のコードは checkout も実行もしない。
+# checkout は既定 ref(base 側)の .github/preview だけで、ref に PR 由来の値を渡してはならない。
 name: preview-cleanup
 
 on:
@@ -7,8 +8,8 @@ on:
     types: [closed]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: 片付ける PR の番号
+      branch:
+        description: 片付ける Preview のブランチ名(Preview 名と同じ)
         required: true
         type: string
 
@@ -17,65 +18,73 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: preview-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: preview-cleanup-${{ github.event.pull_request.head.ref || inputs.branch }}
   cancel-in-progress: false
 
 jobs:
   cleanup:
-    if: vars.PREVIEW_DEPLOY_ENABLED == 'true'
+    # fork の PR は対象外。同名ブランチの Preview を消さないため、secret を使う step に到達させない。
+    if: >-
+      vars.PREVIEW_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GITHUB_TOKEN: ${{ github.token }}
-      PREVIEW_ENABLED: ${{ vars.PREVIEW_DEPLOY_ENABLED }}
-      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-      PREVIEW_HELPER: ${{ github.workspace }}/.github/preview
+      # Preview 名はブランチ名そのもの。Workers Builds の cf previews deploy も同じ値(WORKERS_CI_BRANCH)を使う。
+      PREVIEW_NAME: ${{ github.event.pull_request.head.ref || inputs.branch }}
+      PREVIEW_WORKER: dev-tools
     steps:
+      - name: 同じブランチの open な PR が残っていないか確認
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          open_count=$(gh api -X GET "repos/$REPO/pulls" -f state=open -f head="$OWNER:$PREVIEW_NAME" --jq length)
+          if [ "$open_count" != "0" ]; then
+            echo "open な PR が残っているため削除しません($open_count 件)"
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=delete" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.guard.outputs.action == 'delete'
         with:
           persist-credentials: false
+          sparse-checkout: .github/preview
 
       - uses: actions/setup-node@v4
+        if: steps.guard.outputs.action == 'delete'
         with:
           node-version: 24
 
-      - name: 判定(PR を API で取り直す)
-        id: decide
-        run: node "$PREVIEW_HELPER/bin/preview.mjs" decide-cleanup
-
-      - name: skip の理由
-        if: steps.decide.outputs.action != 'delete'
-        env:
-          REASON: ${{ steps.decide.outputs.reason }}
-        run: echo "skip - $REASON"
-
-      - name: helper の依存関係をインストール
-        if: steps.decide.outputs.action == 'delete'
+      - name: 削除ツール(版固定の wrangler)のインストール
+        if: steps.guard.outputs.action == 'delete'
         working-directory: .github/preview
         run: npm ci --ignore-scripts
 
-      - name: 名前の検査
-        if: steps.decide.outputs.action == 'delete'
-        env:
-          WORKER_NAME: ${{ steps.decide.outputs.name }}
-        run: node "$PREVIEW_HELPER/bin/preview.mjs" assert-name
-
-      - name: 削除
-        if: steps.decide.outputs.action == 'delete'
+      - name: Preview の削除
+        if: steps.guard.outputs.action == 'delete'
+        # wrangler 設定の無い場所で実行し、対象 Worker は --worker-name でだけ決める。
         working-directory: ${{ runner.temp }}
         env:
-          WORKER_NAME: ${{ steps.decide.outputs.name }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CF_SEND_TELEMETRY: "false"
-          DO_NOT_TRACK: "1"
-        run: node "$PREVIEW_HELPER/node_modules/cf/bin/cf" workers delete "$WORKER_NAME" --force
+          WRANGLER_SEND_METRICS: "false"
+          # banner を出すと npm registry への更新確認が走るため止める。
+          WRANGLER_HIDE_BANNER: "true"
+        run: >-
+          node "$GITHUB_WORKSPACE/.github/preview/node_modules/wrangler/bin/wrangler.js"
+          preview delete --worker-name "$PREVIEW_WORKER" --name="$PREVIEW_NAME" --skip-confirmation
 
       - name: 失敗時の手動再実行の案内
         if: failure()
         run: |
           {
-            echo "### 削除に失敗しました"
-            echo "存在しない Worker の削除の挙動は未確認のため、成功扱いにしていません。"
-            echo "Actions の preview-cleanup を workflow_dispatch で、pr_number を指定して再実行してください。"
+            echo "### Preview の削除に失敗しました"
+            echo "存在しない Preview の削除も失敗になります(成功扱いにしていません)。"
+            echo "Actions の preview-cleanup を workflow_dispatch で、branch にブランチ名を指定して再実行してください。"
           } >> "$GITHUB_STEP_SUMMARY"

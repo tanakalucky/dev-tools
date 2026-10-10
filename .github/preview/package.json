@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"lib/*.test.mjs\""
+    "test": "node --test \"*.test.mjs\""
   },
   "devDependencies": {
-    "cf": "1.0.0-beta.14"
+    "wrangler": "4.149.0"
   }
 }

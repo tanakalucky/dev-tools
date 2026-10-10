@@ -32,8 +32,6 @@ jobs:
         working-directory: .github/preview
         run: npm ci --ignore-scripts
 
-      - name: テスト
+      - name: テスト(削除経路をループバックの模擬 API で確認)
         working-directory: .github/preview
-        env:
-          PREVIEW_CF_BIN: ${{ github.workspace }}/.github/preview/node_modules/cf/bin/cf
-        run: node --test "lib/*.test.mjs"
+        run: npm test
