@@ -30,7 +30,6 @@ jobs:
       PREVIEW_ENABLED: ${{ vars.PREVIEW_DEPLOY_ENABLED }}
       PREVIEW_OWNER: ${{ github.repository_owner }}
       PREVIEW_HELPER: ${{ github.workspace }}/.github/preview
-      ARTIFACT_ROOT: ${{ runner.temp }}/preview-artifact
     steps:
       # 既定 ref(main)だけを取得する。PR のコードは取得しない。
       - uses: actions/checkout@v4
@@ -75,6 +74,7 @@ jobs:
         if: steps.decide.outputs.action == 'deploy'
         env:
           WORKER_NAME: ${{ steps.decide.outputs.name }}
+          ARTIFACT_ROOT: ${{ runner.temp }}/preview-artifact
         run: node "$PREVIEW_HELPER/bin/preview.mjs" prepare-artifact "$ARTIFACT_ROOT" "$WORKER_NAME"
 
       - name: deploy 直前の再判定
