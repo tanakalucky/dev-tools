@@ -6,7 +6,7 @@ test("home page loads and links to the tools in order", async ({ page }) => {
   await expect(page.locator("h2")).toHaveText("ツール");
 
   const links = page.getByRole("main").getByRole("link");
-  await expect(links).toHaveText(["JSON整形", "文字数確認", "文字生成"]);
+  await expect(links).toHaveText(["JSON整形", "文字数確認", "文字生成", "全角半角"]);
 
   await links.nth(0).click();
 
@@ -30,6 +30,15 @@ test("home page links to the Character Generator tool", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/character-generator$/);
   await expect(page.locator("h1")).toContainText("Character Generator");
+});
+
+test("home page links to the Width Converter tool", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("main").getByRole("link", { name: "全角半角" }).click();
+
+  await expect(page).toHaveURL(/\/width-converter$/);
+  await expect(page.locator("h1")).toContainText("全角半角変換");
 });
 
 test.describe("sidebar navigation labels on a desktop screen", () => {
@@ -112,7 +121,7 @@ test.describe("sidebar navigation labels on a narrow screen", () => {
   });
 });
 
-const NAVIGATION_LABELS = ["JSON整形", "文字数確認", "文字生成"];
+const NAVIGATION_LABELS = ["JSON整形", "文字数確認", "文字生成", "全角半角"];
 
 function sidebar(page: Page) {
   return page.getByRole("navigation", { name: "ツール" });
