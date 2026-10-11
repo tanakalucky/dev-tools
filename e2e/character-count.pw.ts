@@ -33,13 +33,14 @@ test.describe("Character Count", () => {
     await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
   });
 
-  test("lists JSON Formatter then Character Count in the left navigation", async ({ page }) => {
+  test("lists the tools in order in the left navigation", async ({ page }) => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
     const links = navigation.getByRole("link");
 
-    await expect(links).toHaveCount(2);
-    await expect(links.nth(0)).toHaveAccessibleName("JSON Formatter");
-    await expect(links.nth(1)).toHaveAccessibleName("Character Count");
+    await expect(links).toHaveCount(3);
+    await expect(links.nth(0)).toHaveAccessibleName("JSON整形");
+    await expect(links.nth(1)).toHaveAccessibleName("文字数確認");
+    await expect(links.nth(2)).toHaveAccessibleName("文字生成");
     await expect(links.nth(1)).toHaveAttribute("aria-current", "page");
     await expect(links.nth(0)).not.toHaveAttribute("aria-current", "page");
 
@@ -52,7 +53,7 @@ test.describe("Character Count", () => {
   test("moves to the JSON Formatter from the navigation", async ({ page }) => {
     await page
       .getByRole("navigation", { name: "ツール" })
-      .getByRole("link", { name: "JSON Formatter" })
+      .getByRole("link", { name: "JSON整形" })
       .click();
 
     await expect(page).toHaveURL(/\/json$/);
@@ -82,7 +83,7 @@ test.describe("Character Count on a narrow screen", () => {
     await openCharacterCount(page);
 
     const navigation = page.getByRole("navigation", { name: "ツール" });
-    await expect(navigation.getByRole("link", { name: "Character Count" })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: "文字数確認" })).toBeVisible();
 
     const navigationBox = await navigation.boundingBox();
     const mainBox = await page.getByRole("main").boundingBox();
