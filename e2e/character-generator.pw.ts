@@ -100,6 +100,26 @@ test.describe("Character Generator", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(generated);
   });
 
+  test("shows an error when copying fails", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            throw new Error("Clipboard unavailable");
+          },
+        },
+      });
+    });
+    await page.reload();
+    await expect(generateButton(page)).toBeEnabled();
+
+    await generateButton(page).click();
+    await copyButton(page).click();
+
+    await expect(page.getByText("コピーできませんでした")).toBeVisible();
+  });
+
   test("lists the tools in order and marks Character Generator as current", async ({ page }) => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
     const links = navigation.getByRole("link");
