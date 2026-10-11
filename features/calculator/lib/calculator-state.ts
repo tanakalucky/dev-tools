@@ -34,9 +34,7 @@ export const OPERATOR_SYMBOLS: Record<Operator, string> = {
 
 export const EQUALS_SYMBOL = "＝";
 export const DIVIDE_BY_ZERO_MESSAGE = "0で割れません";
-export const MAX_OPERANDS = 20;
 export const MAX_OPERAND_DIGITS = 40;
-export const TOO_MANY_OPERANDS_NOTICE = `数値は${MAX_OPERANDS}個までです`;
 export const TOO_MANY_DIGITS_NOTICE = `1つの数値は${MAX_OPERAND_DIGITS}桁までです`;
 
 export const INITIAL_STATE: CalculatorState = {
@@ -115,11 +113,12 @@ function pressNumberKey(state: CalculatorState, key: Digit | "."): CalculatorSta
   // 結果・エラーの後の数字と小数点は、新しい計算を始める。
   const base = state.outcome === null ? state : INITIAL_STATE;
   const startsOperand = base.operators.length === base.operands.length;
-  const current = startsOperand ? "" : (base.operands.at(-1) ?? "");
-
-  if (startsOperand && base.operands.length >= MAX_OPERANDS) {
-    return { ...base, notice: TOO_MANY_OPERANDS_NOTICE };
-  }
+  const editsCarry = !startsOperand && base.operands.length === 1 && base.carryDisplay !== null;
+  const current = startsOperand
+    ? ""
+    : editsCarry
+      ? base.carryDisplay!
+      : (base.operands.at(-1) ?? "");
 
   if (!EDITABLE_OPERAND.test(current)) {
     return withoutNotice(base);
@@ -137,7 +136,12 @@ function pressNumberKey(state: CalculatorState, key: Digit | "."): CalculatorSta
 
   const kept = startsOperand ? base.operands : base.operands.slice(0, -1);
 
-  return { ...base, operands: [...kept, next], notice: null };
+  return {
+    ...base,
+    operands: [...kept, next],
+    carryDisplay: editsCarry ? null : base.carryDisplay,
+    notice: null,
+  };
 }
 
 function pressOperator(state: CalculatorState, operator: Operator): CalculatorState {
@@ -200,26 +204,18 @@ function pressBackspace(state: CalculatorState): CalculatorState {
   }
 
   if (operators.length === operands.length) {
-    if (state.carryDisplay !== null && operands.length === 1) {
-      return {
-        ...state,
-        operands: [state.carryDisplay],
-        operators: [],
-        carryDisplay: null,
-        notice: null,
-      };
-    }
-
     return { ...state, operators: operators.slice(0, -1), notice: null };
   }
 
-  const last = operands.at(-1) ?? "";
+  const editsCarry = operands.length === 1 && state.carryDisplay !== null;
+  const last = editsCarry ? state.carryDisplay! : (operands.at(-1) ?? "");
   const shortened = EDITABLE_OPERAND.test(last) ? last.slice(0, -1) : "";
   const isEmpty = shortened === "" || shortened === "-";
 
   return {
     ...state,
     operands: isEmpty ? operands.slice(0, -1) : [...operands.slice(0, -1), shortened],
+    carryDisplay: editsCarry ? null : state.carryDisplay,
     notice: null,
   };
 }

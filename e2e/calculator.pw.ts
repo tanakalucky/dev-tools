@@ -103,6 +103,13 @@ test.describe("Calculator", () => {
     await expect(resultOutput(page)).toHaveText("9");
   });
 
+  test("keeps internal decimal precision after canceling a pending operator", async ({ page }) => {
+    await clickKeys(page, "1/3=*B*3=");
+
+    await expect(expressionLine(page)).toContainText("0.333333333333 × 3 ＝");
+    await expect(resultOutput(page)).toHaveText("1");
+  });
+
   test("removes one character per backspace and clears everything with AC", async ({ page }) => {
     await clickKeys(page, "12+34B");
     await expect(calculator(page)).toContainText("12 ＋ 3");

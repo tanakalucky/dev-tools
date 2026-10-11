@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_STATE,
-  MAX_OPERANDS,
   MAX_OPERAND_DIGITS,
   TOO_MANY_DIGITS_NOTICE,
-  TOO_MANY_OPERANDS_NOTICE,
   getDisplay,
   parseKeyboardKey,
   pressKey,
@@ -120,6 +118,22 @@ describe("after a result", () => {
     expect(show("1/3=*3=")).toMatchObject({ result: "1", expression: "0.333333333333 × 3 ＝" });
   });
 
+  it("keeps the internal value when a pending operator is removed and entered again", () => {
+    expect(show("1/3=*B*3=")).toMatchObject({
+      result: "1",
+      expression: "0.333333333333 × 3 ＝",
+    });
+    expect(show("1/3=*B")).toMatchObject({
+      result: "0.333333333333",
+      expression: "0.333333333333",
+    });
+  });
+
+  it("edits the displayed value only when a digit or another Backspace changes it", () => {
+    expect(show("1/3=*B4")).toMatchObject({ result: "0.3333333333334" });
+    expect(show("1/3=*BB")).toMatchObject({ result: "0.33333333333" });
+  });
+
   it("ignores another =", () => {
     expect(pressKeys("1+2==")).toEqual(pressKeys("1+2="));
   });
@@ -220,20 +234,8 @@ describe("limits", () => {
     expect(pressKey(rejected, "+").notice).toBeNull();
   });
 
-  it("rejects a new number beyond the maximum count and says so", () => {
-    const full = pressKeys("1+".repeat(MAX_OPERANDS - 1) + "1");
-    const rejected = pressKey(pressKey(full, "+"), "1");
-
-    expect(full.operands).toHaveLength(MAX_OPERANDS);
-    expect(rejected.operands).toHaveLength(MAX_OPERANDS);
-    expect(rejected.notice).toBe(TOO_MANY_OPERANDS_NOTICE);
-  });
-
-  it("still evaluates the longest allowed expression", () => {
-    const full = pressKeys("9".repeat(MAX_OPERAND_DIGITS) + "*9".repeat(MAX_OPERANDS - 1) + "=");
-
-    expect(getDisplay(full)).toMatchObject({ isError: false });
-    expect(getDisplay(full).result).toMatch(/^\d(\.\d+)?e\+\d+$/);
+  it("evaluates more than 20 operands without an arbitrary expression limit", () => {
+    expect(show("1+".repeat(20) + "1=")).toMatchObject({ result: "21" });
   });
 });
 
