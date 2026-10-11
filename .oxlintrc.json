@@ -1,0 +1,7 @@
+{
+  "jsPlugins": ["./tools/oxlint-boundaries/index.js"],
+  "rules": {
+    "boundaries/import-boundary": "error"
+  },
+  "ignorePatterns": ["tools/oxlint-boundaries/fixtures/**"]
+}

@@ -1,0 +1,10 @@
+import "../app/page";
+import "@/app/layout";
+import "../features/sample/lib/index";
+import "@/features/sample/components/ui";
+import { type T } from "../features/other/lib/types";
+import type { U } from "@/features/other/lib/utils";
+const x = import("../app/config");
+type V = import("@/features/sample/lib/data").Data;
+export * from "../features/sample/lib/helpers";
+export type { W } from "@/features/other/lib/core";
