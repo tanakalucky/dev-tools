@@ -102,11 +102,12 @@ test.describe("Width Converter", () => {
   test("lists the tools in order and marks Width Converter as current", async ({ page }) => {
     const links = page.getByRole("navigation", { name: "ツール" }).getByRole("link");
 
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(5);
     await expect(links.nth(3)).toHaveAccessibleName("全角半角");
     await expect(links.nth(3)).toHaveAttribute("aria-current", "page");
+    await expect(links.nth(4)).toHaveAccessibleName("電卓");
 
-    for (const index of [0, 1, 2]) {
+    for (const index of [0, 1, 2, 4]) {
       await expect(links.nth(index)).not.toHaveAttribute("aria-current", "page");
     }
   });

@@ -37,11 +37,12 @@ test.describe("Character Count", () => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
     const links = navigation.getByRole("link");
 
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(5);
     await expect(links.nth(0)).toHaveAccessibleName("JSON整形");
     await expect(links.nth(1)).toHaveAccessibleName("文字数確認");
     await expect(links.nth(2)).toHaveAccessibleName("文字生成");
     await expect(links.nth(3)).toHaveAccessibleName("全角半角");
+    await expect(links.nth(4)).toHaveAccessibleName("電卓");
     await expect(links.nth(1)).toHaveAttribute("aria-current", "page");
     await expect(links.nth(0)).not.toHaveAttribute("aria-current", "page");
 
