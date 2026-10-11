@@ -34,6 +34,31 @@ describe("evaluate: decimal arithmetic", () => {
     expect(evaluate(["1", "3", "3"], ["/", "*"])).toMatchObject({ kind: "value", text: "1" });
   });
 
+  it("suppresses a residue from recurring division when equal values cancel", () => {
+    expect(evaluate(["1", "3", "3", "1"], ["/", "*", "-"])).toMatchObject({
+      kind: "value",
+      text: "0",
+      raw: "0",
+    });
+    expect(evaluate(["4", "3", "3", "4"], ["/", "*", "-"])).toMatchObject({
+      kind: "value",
+      text: "0",
+    });
+  });
+
+  it("preserves genuine tiny decimal results", () => {
+    const tiny = `0.${"0".repeat(38)}1`;
+
+    expect(evaluate(["1", "2", tiny, "0.5"], ["/", "+", "-"])).toMatchObject({
+      kind: "value",
+      text: "1e-39",
+    });
+    expect(evaluate(["1", `1${"0".repeat(39)}`], ["/"])).toMatchObject({
+      kind: "value",
+      text: "1e-39",
+    });
+  });
+
   it("keeps the internal result separate from the 12-digit display", () => {
     const result = evaluate(["1", "3"], ["/"]);
 

@@ -6,7 +6,7 @@ export type Digit = (typeof DIGITS)[number];
 export type CalculatorKey = Digit | "." | Operator | "=" | "backspace" | "clear";
 
 export type Outcome =
-  | { kind: "result"; text: string; raw: string }
+  | { kind: "result"; text: string; raw: string; approximate: boolean }
   | { kind: "error"; message: string };
 
 // operators.length が operands.length と等しいとき、式は演算子で終わっている。
@@ -15,6 +15,7 @@ export type CalculatorState = {
   operators: Operator[];
   outcome: Outcome | null;
   carryDisplay: string | null;
+  carryApproximate: boolean;
   notice: string | null;
 };
 
@@ -42,6 +43,7 @@ export const INITIAL_STATE: CalculatorState = {
   operators: [],
   outcome: null,
   carryDisplay: null,
+  carryApproximate: false,
   notice: null,
 };
 
@@ -140,6 +142,7 @@ function pressNumberKey(state: CalculatorState, key: Digit | "."): CalculatorSta
     ...base,
     operands: [...kept, next],
     carryDisplay: editsCarry ? null : base.carryDisplay,
+    carryApproximate: editsCarry ? false : base.carryApproximate,
     notice: null,
   };
 }
@@ -157,6 +160,7 @@ function pressOperator(state: CalculatorState, operator: Operator): CalculatorSt
       operands: [outcome.raw],
       operators: [operator],
       carryDisplay: outcome.text,
+      carryApproximate: outcome.approximate,
     };
   }
 
@@ -190,7 +194,7 @@ function pressEquals(state: CalculatorState): CalculatorState {
   return {
     ...state,
     operands: finished,
-    outcome: toOutcome(evaluate(finished, operators)),
+    outcome: toOutcome(evaluate(finished, operators, state.carryApproximate)),
     notice: null,
   };
 }
@@ -216,6 +220,7 @@ function pressBackspace(state: CalculatorState): CalculatorState {
     ...state,
     operands: isEmpty ? operands.slice(0, -1) : [...operands.slice(0, -1), shortened],
     carryDisplay: editsCarry ? null : state.carryDisplay,
+    carryApproximate: editsCarry ? false : state.carryApproximate,
     notice: null,
   };
 }
@@ -240,7 +245,12 @@ function countDigits(operand: string): number {
 
 function toOutcome(evaluation: Evaluation): Outcome {
   return evaluation.kind === "value"
-    ? { kind: "result", text: evaluation.text, raw: evaluation.raw }
+    ? {
+        kind: "result",
+        text: evaluation.text,
+        raw: evaluation.raw,
+        approximate: evaluation.approximate,
+      }
     : { kind: "error", message: DIVIDE_BY_ZERO_MESSAGE };
 }
 
