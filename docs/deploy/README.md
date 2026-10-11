@@ -2,7 +2,7 @@
 
 PR ごとに Cloudflare の Worker Preview(Worker `dev-tools`)を作り、push で更新し、PR が閉じられたら削除する仕組み。
 すべて GitHub Actions で行い、Workers Builds は使わない。本番 deploy と custom domain は対象外。
-deploy 経路は実 CI でも Cloudflare でも未実行。
+draft PR #5 で自動 preview-deploy が 2026-10-11 に完了(pr-5, https://pr-5-dev-tools.luckyyeslucky777.workers.dev)。CI も成功。
 
 ## 流れ
 
@@ -74,7 +74,7 @@ main にはまだアプリが存在しないため、直接 main へのマージ
 
 ## 限界と未検証
 
-- deploy 経路は実 CI でも Cloudflare でも未実行。
+- deploy 経路は draft PR #5 で実行された。cleanup の自動実行と preview URL の browser 検証は未実施。
 - 削除・deploy に必要な API token の最小権限は未検証。
 - イベントを喪失した場合は自動で回復しない。定期的な照合はしない。
 - 手動作成済みの Preview `feat/json-formatter` は Access の redirect により動作未確認。
