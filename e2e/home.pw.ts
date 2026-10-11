@@ -6,7 +6,7 @@ test("home page loads and links to the tools in order", async ({ page }) => {
   await expect(page.locator("h2")).toHaveText("ツール");
 
   const links = page.getByRole("main").getByRole("link");
-  await expect(links).toHaveText(["JSON Formatter", "Character Count"]);
+  await expect(links).toHaveText(["JSON Formatter", "Character Count", "Character Generator"]);
 
   await links.nth(0).click();
 
@@ -21,4 +21,13 @@ test("home page links to the Character Count tool", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/character-count$/);
   await expect(page.locator("h1")).toContainText("Character Count");
+});
+
+test("home page links to the Character Generator tool", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("main").getByRole("link", { name: "Character Generator" }).click();
+
+  await expect(page).toHaveURL(/\/character-generator$/);
+  await expect(page.locator("h1")).toContainText("Character Generator");
 });

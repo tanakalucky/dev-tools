@@ -33,13 +33,14 @@ test.describe("Character Count", () => {
     await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
   });
 
-  test("lists JSON Formatter then Character Count in the left navigation", async ({ page }) => {
+  test("lists the tools in order in the left navigation", async ({ page }) => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
     const links = navigation.getByRole("link");
 
-    await expect(links).toHaveCount(2);
+    await expect(links).toHaveCount(3);
     await expect(links.nth(0)).toHaveAccessibleName("JSON Formatter");
     await expect(links.nth(1)).toHaveAccessibleName("Character Count");
+    await expect(links.nth(2)).toHaveAccessibleName("Character Generator");
     await expect(links.nth(1)).toHaveAttribute("aria-current", "page");
     await expect(links.nth(0)).not.toHaveAttribute("aria-current", "page");
 
