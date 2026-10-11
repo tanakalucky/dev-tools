@@ -27,9 +27,7 @@ export function CharacterCount() {
         文字数を、入力と同時に。改行は数えません。
       </p>
 
-      <div className="mt-7 flex flex-col gap-4">
-        <CountPanel labelId={countLabelId} inputId={inputId} count={countCharacters(text)} />
-
+      <div className="mt-7 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-[0_3px_0_var(--border)]">
           <div className="flex h-11 items-center border-b border-border px-4 text-xs font-semibold">
             <label htmlFor={inputId}>テキスト</label>
@@ -46,6 +44,8 @@ export function CharacterCount() {
             className="min-h-80 field-sizing-fixed resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 whitespace-pre-wrap wrap-anywhere focus-visible:ring-inset md:min-h-96 dark:bg-transparent"
           />
         </section>
+
+        <CountPanel labelId={countLabelId} inputId={inputId} count={countCharacters(text)} />
       </div>
     </div>
   );
@@ -61,14 +61,14 @@ function CountPanel({
   count: number;
 }) {
   return (
-    <section className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl border border-border bg-accent px-6 py-5 shadow-[0_3px_0_var(--border)]">
+    <section className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl border border-border bg-accent px-6 py-5 shadow-[0_3px_0_var(--border)]">
       <h2 id={labelId} className="m-0 text-xs font-semibold text-muted-foreground">
         文字数
       </h2>
       <output
         htmlFor={inputId}
         aria-labelledby={labelId}
-        className="text-6xl leading-none font-bold tracking-tight text-primary tabular-nums md:text-7xl"
+        className="min-w-0 text-6xl leading-none font-bold break-all tracking-tight text-primary tabular-nums md:text-7xl"
       >
         {count}
       </output>

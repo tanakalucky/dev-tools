@@ -60,6 +60,19 @@ test.describe("Character Count", () => {
   });
 });
 
+test.describe("Character Count on a desktop screen", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("places the input on the left and the count on the right", async ({ page }) => {
+    await openCharacterCount(page);
+
+    const inputBox = await textField(page).boundingBox();
+    const countBox = await countOutput(page).boundingBox();
+
+    expect(inputBox!.x + inputBox!.width).toBeLessThanOrEqual(countBox!.x);
+  });
+});
+
 test.describe("Character Count on a narrow screen", () => {
   test.use({ viewport: { width: 375, height: 800 } });
 
@@ -75,6 +88,11 @@ test.describe("Character Count on a narrow screen", () => {
     const mainBox = await page.getByRole("main").boundingBox();
 
     expect(navigationBox!.y + navigationBox!.height).toBeLessThanOrEqual(mainBox!.y);
+
+    const inputBox = await textField(page).boundingBox();
+    const countBox = await countOutput(page).boundingBox();
+
+    expect(inputBox!.y + inputBox!.height).toBeLessThanOrEqual(countBox!.y);
 
     await textField(page).fill("a".repeat(500));
     await expect(countOutput(page)).toHaveText("500");
