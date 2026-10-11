@@ -1,7 +1,22 @@
+# deploy
+
+すべて GitHub Actions で行い、Workers Builds は使わない。
+
+## 本番 deploy
+
+`production-deploy`(`push`: main)が `npm ci` → `npm run build` → `cf deploy --prebuilt`(アプリが固定している `cf`)で
+Worker `dev-tools` を deploy する。公開先は custom domain `https://dev-tools.tanakalucky.com`(`cloudflare.config.ts` の `domains`)で、
+`workersDev: false`、`previewUrls: true`。job は GitHub Environment `production` で動き、同時実行は直列化する。
+`domains` などの本番設定は Preview build(`isPreview`)には含めない。
+
+- `tanakalucky.com` の zone が `CLOUDFLARE_ACCOUNT_ID` のアカウントにあり、API token がその zone の Workers Routes と DNS を編集できること。
+  既存の DNS レコードは無くてよい(custom domain の attach 時に作られる)。
+- secret は preview と同じ `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID`。
+- 失敗したら run を再実行する。止めたいときは workflow を disable する。
+
 # preview deploy
 
 PR ごとに Cloudflare の Worker Preview(Worker `dev-tools`)を作成・更新し、PR が閉じられたら削除する仕組み。
-すべて GitHub Actions で行い、Workers Builds は使わない。本番 deploy と custom domain は対象外。
 
 ## 流れ
 
