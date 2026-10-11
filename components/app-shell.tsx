@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
+import { NavigationLink } from "./navigation-link";
 
 export type NavigationItem = { href: string; label: string };
 
@@ -51,33 +51,17 @@ function SideNavigation({ navigation, currentHref }: Omit<AppShellProps, "childr
         TOOLS
       </p>
 
-      <ul className="m-0 flex list-none gap-1 overflow-x-auto p-0 md:flex-col">
+      <ul className="m-0 flex min-w-0 list-none flex-wrap gap-1 p-0 md:flex-col md:flex-nowrap">
         {navigation.map((item) => (
-          <li key={item.href}>
-            <NavigationLink item={item} isCurrent={item.href === currentHref} />
+          <li key={item.href} className="min-w-0 md:w-full">
+            <NavigationLink
+              href={item.href}
+              label={item.label}
+              isCurrent={item.href === currentHref}
+            />
           </li>
         ))}
       </ul>
     </nav>
-  );
-}
-
-function NavigationLink({ item, isCurrent }: { item: NavigationItem; isCurrent: boolean }) {
-  return (
-    <a
-      href={item.href}
-      aria-current={isCurrent ? "page" : undefined}
-      className={cn(
-        "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm whitespace-nowrap transition-colors",
-        isCurrent
-          ? "bg-accent font-semibold text-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <span aria-hidden="true" className="font-mono">
-        {"{ }"}
-      </span>
-      {item.label}
-    </a>
   );
 }

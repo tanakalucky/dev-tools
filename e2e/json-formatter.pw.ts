@@ -88,10 +88,10 @@ test.describe("JSON Formatter", () => {
 
   test("marks JSON Formatter as current in the left navigation", async ({ page }) => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
-    const link = navigation.getByRole("link", { name: "JSON Formatter" });
+    const link = navigation.getByRole("link", { name: "JSON整形" });
 
     await expect(link).toHaveAttribute("aria-current", "page");
-    await expect(navigation.getByRole("link", { name: "Character Count" })).not.toHaveAttribute(
+    await expect(navigation.getByRole("link", { name: "文字数確認" })).not.toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -112,7 +112,7 @@ test.describe("JSON Formatter on a narrow screen", () => {
     await openJsonFormatter(page);
 
     const navigation = page.getByRole("navigation", { name: "ツール" });
-    await expect(navigation.getByRole("link", { name: "JSON Formatter" })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: "JSON整形" })).toBeVisible();
 
     const navigationBox = await navigation.boundingBox();
     const mainBox = await page.getByRole("main").boundingBox();

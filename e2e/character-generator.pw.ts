@@ -125,7 +125,7 @@ test.describe("Character Generator", () => {
     const links = navigation.getByRole("link");
 
     await expect(links).toHaveCount(3);
-    await expect(links.nth(2)).toHaveAccessibleName("Character Generator");
+    await expect(links.nth(2)).toHaveAccessibleName("文字生成");
     await expect(links.nth(2)).toHaveAttribute("aria-current", "page");
     await expect(links.nth(0)).not.toHaveAttribute("aria-current", "page");
     await expect(links.nth(1)).not.toHaveAttribute("aria-current", "page");
@@ -134,7 +134,7 @@ test.describe("Character Generator", () => {
   test("moves to the JSON Formatter from the navigation", async ({ page }) => {
     await page
       .getByRole("navigation", { name: "ツール" })
-      .getByRole("link", { name: "JSON Formatter" })
+      .getByRole("link", { name: "JSON整形" })
       .click();
 
     await expect(page).toHaveURL(/\/json$/);
