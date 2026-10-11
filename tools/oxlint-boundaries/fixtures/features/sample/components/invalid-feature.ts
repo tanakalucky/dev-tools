@@ -1,0 +1,12 @@
+import "../../../app/page";
+import "../../other/lib/index";
+import "@/features/other/components/ui";
+import { type T } from "../../other/lib/types";
+import type { U } from "@/features/other/lib/utils";
+export * from "../../other/lib/helpers";
+export type { V } from "@/features/other/lib/core";
+const x = import("@/features/other/lib/config");
+type W = import("../../other/lib/data").Data;
+import X = require("./local");
+import "@/app/layout";
+import { Y } from "@/features/other/lib/another";
