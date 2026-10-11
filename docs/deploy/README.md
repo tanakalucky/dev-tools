@@ -4,15 +4,21 @@
 
 ## 本番 deploy
 
-`production-deploy`(`push`: main)が `npm ci` → `npm run build` → `cf deploy --prebuilt`(アプリが固定している `cf`)で
-Worker `dev-tools` を deploy する。公開先は custom domain `https://dev-tools.tanakalucky.com`(`cloudflare.config.ts` の `domains`)で、
-`workersDev: false`、`previewUrls: true`。job は GitHub Environment `production` で動き、同時実行は直列化する。
+本番 deploy は `.github/workflows/ci.yml` の `deploy-production` job だけで行う(単独の本番 deploy workflow は無い)。
+`deploy-production` は `needs: verify` で、`verify`(test・typecheck・lint・format・build・e2e)が成功したときだけ動く。
+条件は `push`: main のみで、PR では動かない。`verify` が失敗した push は deploy されない。
+`npm ci` → `npm run build` → `cf deploy --prebuilt`(アプリが固定している `cf`)で Worker `dev-tools` を deploy する。
+公開先は custom domain `https://dev-tools.tanakalucky.com`(`cloudflare.config.ts` の `domains`)で、
+`workersDev: false`、`previewUrls: true`。job は GitHub Environment `production` で動く。
 `domains` などの本番設定は Preview build(`isPreview`)には含めない。
+
+CI の concurrency は ref ごとの直列化で、PR の run だけ新しい push で古い run をキャンセルする。
+main の run は deploy 中に後続 push でキャンセルされず、待機中の run は新しいものに置き換えられうる。
 
 - `tanakalucky.com` の zone が `CLOUDFLARE_ACCOUNT_ID` のアカウントにあり、API token がその zone の Workers Routes と DNS を編集できること。
   既存の DNS レコードは無くてよい(custom domain の attach 時に作られる)。
 - secret は preview と同じ `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID`。
-- 失敗したら run を再実行する。止めたいときは workflow を disable する。
+- 失敗したら run を再実行する(`verify` から再実行される)。
 
 # preview deploy
 
