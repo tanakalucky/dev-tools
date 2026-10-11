@@ -15,7 +15,6 @@ type FormatState =
 type CopyStatus = "idle" | "copied" | "failed";
 
 const ACTION_BUTTON_CLASS = "px-4";
-const PRIMARY_BUTTON_CLASS = `${ACTION_BUTTON_CLASS} shadow-[0_2px_0_color-mix(in_oklch,var(--primary),black_35%)]`;
 
 export function JsonFormatter() {
   const inputId = useId();
@@ -72,7 +71,7 @@ export function JsonFormatter() {
         <Button
           type="button"
           size="lg"
-          className={PRIMARY_BUTTON_CLASS}
+          className={ACTION_BUTTON_CLASS}
           disabled={!isReady}
           onClick={handleFormat}
         >
