@@ -4,7 +4,7 @@ Browser-only developer utilities. Tool input is processed locally in the browser
 
 ## Status
 
-Foundation for tools. No features implemented yet.
+One tool is implemented: the JSON formatter at `/json` ([features/json-formatter/README.md](features/json-formatter/README.md)). The home page `/` links to it.
 
 - Preview runs on GitHub Actions ([docs/deploy/README.md](docs/deploy/README.md)). There is no production deploy.
 - The stack is [vinext](https://vinext.dev) targeting Cloudflare Workers.
@@ -40,11 +40,12 @@ There is no deploy command yet.
 
 ## Layout
 
-- `app/` - ルート・レイアウト・薄い composition のみ。
-- `features/` - 機能単位のコード。詳細は [features/README.md](features/README.md)。
+- `app/` - ルート・レイアウト・薄い composition のみ。`app/tools.ts` はサイドバーに出すツール一覧(現在は JSON Formatter のみ)。
+- `features/` - 機能単位のコード。詳細は [features/README.md](features/README.md)。現在は [json-formatter](features/json-formatter/README.md) のみ。
 - `tools/oxlint-boundaries/` - 層境界を検査するローカル oxlint JS プラグイン(alpha・semver 保証なし)。詳細は [tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md)。設定は `.oxlintrc.json`。
-- `components/ui/` - shadcn/ui の公式部品(Base UI 版)を将来的に配置する場所。追加は公式 CLI と `components.json` で行い、部品のソースは手で改変しない。現在は未使用。
-- `lib/utils.ts` - `cn` の再エクスポート(部品が使う)。
+- `components/ui/` - shadcn/ui の公式部品(Base UI 版)を配置する場所。追加は公式 CLI と `components.json` で行い、部品のソースは手で改変しない。現在は `button` と `textarea` を JSON Formatter が使う。見た目の調整は呼び出し側の `className` と `app/globals.css` のトークンで行う(配色はラベンダー系)。
+- `components/app-shell.tsx` - ヘッダーと左ナビゲーションを持つ共通の枠。狭い画面ではナビゲーションがヘッダー下の横並びになる。
+- `lib/utils.ts` - `cn` の再エクスポート(共通枠が使う)。shadcn の公式部品は `cn` パッケージを直接 import する。
 - 共有コードの import は `@/` エイリアス(プロジェクトルート相対)を使う。ルート直下の `hooks/` は、複数機能で本当に共有するものが出た時だけ作る(現在は無し)。
 
 ### 依存ルール(責務と設計意図)
