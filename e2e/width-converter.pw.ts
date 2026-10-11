@@ -40,6 +40,28 @@ test.describe("Width Converter", () => {
     await expect(resultField(page)).toHaveValue(FULL_WIDTH_SAMPLE);
   });
 
+  test("keeps the previous result until Convert is pressed after changing direction", async ({
+    page,
+  }) => {
+    await inputField(page).fill(FULL_WIDTH_SAMPLE);
+    await convertButton(page).click();
+    await expect(resultField(page)).toHaveValue(HALF_WIDTH_SAMPLE);
+
+    await directionSelect(page).selectOption("to-full");
+    await expect(resultField(page)).toHaveValue(HALF_WIDTH_SAMPLE);
+
+    await inputField(page).fill(HALF_WIDTH_SAMPLE);
+    await convertButton(page).click();
+    await expect(resultField(page)).toHaveValue(FULL_WIDTH_SAMPLE);
+  });
+
+  test("keeps Copy disabled after converting an empty input", async ({ page }) => {
+    await convertButton(page).click();
+
+    await expect(resultField(page)).toHaveValue("");
+    await expect(copyButton(page)).toBeDisabled();
+  });
+
   test("keeps the result read-only", async ({ page }) => {
     await expect(resultField(page)).toHaveAttribute("readonly", "");
     await expect(inputField(page)).not.toHaveAttribute("readonly", "");
