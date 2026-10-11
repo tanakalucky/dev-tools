@@ -86,13 +86,15 @@ test.describe("JSON Formatter", () => {
     await expect(copyButton(page)).toBeDisabled();
   });
 
-  test("has only JSON Formatter in the left navigation", async ({ page }) => {
+  test("marks JSON Formatter as current in the left navigation", async ({ page }) => {
     const navigation = page.getByRole("navigation", { name: "ツール" });
-    const link = navigation.getByRole("link");
+    const link = navigation.getByRole("link", { name: "JSON Formatter" });
 
-    await expect(link).toHaveCount(1);
-    await expect(link).toHaveAccessibleName("JSON Formatter");
     await expect(link).toHaveAttribute("aria-current", "page");
+    await expect(navigation.getByRole("link", { name: "Character Count" })).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
 
     const navigationBox = await navigation.boundingBox();
     const mainBox = await page.getByRole("main").boundingBox();
