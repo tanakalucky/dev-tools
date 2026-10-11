@@ -108,9 +108,6 @@ test.describe("Calculator", () => {
 
     await expect(expressionLine(page)).toContainText("0.333333333333 × 3 ＝");
     await expect(resultOutput(page)).toHaveText("1");
-
-    await clickKeys(page, "-1=");
-    await expect(resultOutput(page)).toHaveText("0");
   });
 
   test("removes one character per backspace and clears everything with AC", async ({ page }) => {

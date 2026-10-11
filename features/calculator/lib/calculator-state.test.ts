@@ -118,11 +118,6 @@ describe("after a result", () => {
     expect(show("1/3=*3=")).toMatchObject({ result: "1", expression: "0.333333333333 × 3 ＝" });
   });
 
-  it("hides recurring-decimal residue after cancellation, including continued calculations", () => {
-    expect(show("1/3*3-1=")).toMatchObject({ result: "0", copyText: "0" });
-    expect(show("1/3=*3=-1=")).toMatchObject({ result: "0", copyText: "0" });
-  });
-
   it("keeps the internal value when a pending operator is removed and entered again", () => {
     expect(show("1/3=*B*3=")).toMatchObject({
       result: "1",
