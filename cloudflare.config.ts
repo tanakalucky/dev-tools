@@ -1,6 +1,6 @@
 import { bindings, defineConfig, defineWorker } from "cf/config";
 
-export default defineConfig({
+export default defineConfig(({ isPreview }) => ({
   worker: defineWorker({
     name: "dev-tools",
     entrypoint: "vinext/server/fetch-handler",
@@ -10,5 +10,13 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
     },
+    // Preview の Build Output に本番の custom domain と公開設定を持ち込まない。
+    ...(isPreview
+      ? {}
+      : {
+          domains: ["dev-tools.tanakalucky.com"],
+          workersDev: false,
+          previewUrls: true,
+        }),
   }),
-});
+}));
