@@ -286,6 +286,9 @@ for (const [width, height] of [
   }, testInfo) => {
     // Arrange
     await page.setViewportSize({ width, height });
+    await open(page);
+    const emptyCalculator = await calculator(page).boundingBox();
+    const emptyHistory = await history(page).boundingBox();
     const entries = Array.from({ length: 50 }, (_, index) => ({
       ...seedEntry,
       id: `layout-${index}`,
@@ -315,6 +318,10 @@ for (const [width, height] of [
     const right = await history(page).boundingBox();
     expect(left!.x + left!.width).toBeLessThan(right!.x);
     expect(left!.y).toBe(right!.y);
+    expect(left!.height).toBe(right!.height);
+    expect(left!.y + left!.height).toBe(right!.y + right!.height);
+    expect(left!.height).toBe(emptyCalculator!.height);
+    expect(right!.height).toBe(emptyHistory!.height);
     expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
       true,
     );
@@ -457,3 +464,36 @@ test("mobile long history scrolls internally and every navigation label stays av
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
   }
 });
+
+for (const spacing of [0, 0.02]) {
+  test(`navigation focus stays fully inside with fractional font geometry (${spacing}px spacing)`, async ({
+    page,
+  }) => {
+    // Arrange: different font metrics exercise non-integer link edges on both local and CI browsers.
+    await page.setViewportSize({ width: 320, height: 568 });
+    await open(page);
+    await page.addStyleTag({
+      content: `nav a { font-family: Arial, sans-serif; letter-spacing: ${spacing}px; }`,
+    });
+    const nav = page.getByRole("navigation", { name: "ツール" });
+    const links = await nav.getByRole("link").all();
+    // Act / Assert: real Tab navigation in both directions, including the end of the scroll range.
+    await links[0]!.focus();
+    for (const order of [links, [...links].reverse()]) {
+      for (const [index, link] of order.entries()) {
+        if (index > 0) await page.keyboard.press(order === links ? "Tab" : "Shift+Tab");
+        await expect(link).toBeFocused();
+        await expect(link).toBeInViewport({ ratio: 1 });
+        const box = await link.boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(4);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(316);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth > innerWidth || scrollY !== 0,
+          ),
+        ).toBe(false);
+      }
+    }
+    expect(await nav.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  });
+}

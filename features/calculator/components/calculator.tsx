@@ -251,7 +251,7 @@ export function Calculator() {
           aria-label="計算履歴"
           aria-busy={!isReady}
           className={cn(
-            "min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card p-3.5 md:flex md:rounded-2xl md:p-[17px]",
+            "min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card p-3.5 md:flex md:h-full md:max-h-[540px] md:self-start md:rounded-2xl md:p-[17px]",
             panel === "history" ? "flex" : "hidden",
           )}
         >

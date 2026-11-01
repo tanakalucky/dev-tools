@@ -71,7 +71,7 @@ function SideNavigation({ navigation, currentHref, viewport }: Omit<AppShellProp
       <ul
         className={cn(
           "m-0 flex min-w-0 list-none flex-wrap gap-1 p-0 md:flex-col md:flex-nowrap",
-          viewport && "flex-nowrap [&>li]:shrink-0",
+          viewport && "w-max min-w-full flex-nowrap md:w-full [&>li]:shrink-0",
         )}
       >
         {navigation.map((item) => (

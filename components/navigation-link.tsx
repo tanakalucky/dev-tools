@@ -51,6 +51,8 @@ export function NavigationLink({
       onKeyDown={hideFullLabelOnEscape}
       className={cn(
         "relative flex max-w-full min-w-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm whitespace-nowrap transition-colors",
+        // 小数のスクロール位置が丸められても、輪郭が領域外へ欠けない余白。
+        scrollOnFocus && "scroll-mx-2",
         isCurrent
           ? "bg-accent font-semibold text-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
