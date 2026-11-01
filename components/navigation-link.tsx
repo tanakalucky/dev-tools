@@ -4,9 +4,19 @@ import { useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
-type NavigationLinkProps = { href: string; label: string; isCurrent: boolean };
+type NavigationLinkProps = {
+  href: string;
+  label: string;
+  isCurrent: boolean;
+  scrollOnFocus?: boolean;
+};
 
-export function NavigationLink({ href, label, isCurrent }: NavigationLinkProps) {
+export function NavigationLink({
+  href,
+  label,
+  isCurrent,
+  scrollOnFocus = false,
+}: NavigationLinkProps) {
   const labelRef = useRef<HTMLSpanElement>(null);
   const [isFullLabelShown, setIsFullLabelShown] = useState(false);
 
@@ -32,11 +42,17 @@ export function NavigationLink({ href, label, isCurrent }: NavigationLinkProps) 
       aria-current={isCurrent ? "page" : undefined}
       onMouseEnter={showFullLabelIfTruncated}
       onMouseLeave={hideFullLabel}
-      onFocus={showFullLabelIfTruncated}
+      onFocus={(event) => {
+        showFullLabelIfTruncated();
+        if (scrollOnFocus)
+          event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }}
       onBlur={hideFullLabel}
       onKeyDown={hideFullLabelOnEscape}
       className={cn(
         "relative flex max-w-full min-w-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm whitespace-nowrap transition-colors",
+        // 小数のスクロール位置が丸められても、輪郭が領域外へ欠けない余白。
+        scrollOnFocus && "scroll-mx-2",
         isCurrent
           ? "bg-accent font-semibold text-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",

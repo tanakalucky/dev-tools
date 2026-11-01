@@ -417,7 +417,12 @@ test.describe("Calculator on a desktop screen", () => {
 
     expect(card.width).toBeLessThanOrEqual(396);
     expect(card.width).toBeGreaterThan(380);
-    expect(Math.abs(card.x + card.width / 2 - (main.x + main.width / 2))).toBeLessThan(2);
+    const history = await boxOf(page.getByRole("region", { name: "計算履歴" }));
+    expect(card.x + card.width).toBeLessThan(history.x);
+    expect(card.y).toBe(history.y);
+    expect(
+      Math.abs((card.x + history.x + history.width) / 2 - (main.x + main.width / 2)),
+    ).toBeLessThan(2);
 
     expect(seven.x).toBeLessThan(eight.x);
     expect(eight.x).toBeLessThan(nine.x);
