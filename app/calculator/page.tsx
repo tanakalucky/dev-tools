@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function CalculatorPage() {
   return (
-    <AppShell navigation={tools} currentHref={CALCULATOR_HREF}>
+    <AppShell navigation={tools} currentHref={CALCULATOR_HREF} viewport>
       <Calculator />
     </AppShell>
   );

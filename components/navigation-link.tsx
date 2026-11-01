@@ -4,9 +4,19 @@ import { useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
-type NavigationLinkProps = { href: string; label: string; isCurrent: boolean };
+type NavigationLinkProps = {
+  href: string;
+  label: string;
+  isCurrent: boolean;
+  scrollOnFocus?: boolean;
+};
 
-export function NavigationLink({ href, label, isCurrent }: NavigationLinkProps) {
+export function NavigationLink({
+  href,
+  label,
+  isCurrent,
+  scrollOnFocus = false,
+}: NavigationLinkProps) {
   const labelRef = useRef<HTMLSpanElement>(null);
   const [isFullLabelShown, setIsFullLabelShown] = useState(false);
 
@@ -32,7 +42,11 @@ export function NavigationLink({ href, label, isCurrent }: NavigationLinkProps) 
       aria-current={isCurrent ? "page" : undefined}
       onMouseEnter={showFullLabelIfTruncated}
       onMouseLeave={hideFullLabel}
-      onFocus={showFullLabelIfTruncated}
+      onFocus={(event) => {
+        showFullLabelIfTruncated();
+        if (scrollOnFocus)
+          event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }}
       onBlur={hideFullLabel}
       onKeyDown={hideFullLabelOnEscape}
       className={cn(

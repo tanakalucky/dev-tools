@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,7 +61,8 @@ const KEYS: KeyDefinition[] = [
   { key: "=", label: EQUALS_SYMBOL, name: "計算結果", tone: "equals", isWide: true },
 ];
 
-const KEY_CLASS = "h-[3.125rem] w-full min-w-0 px-0 md:h-[3.0625rem]";
+const KEY_CLASS =
+  "h-full max-h-[3.125rem] min-h-0 w-full min-w-0 px-0 md:max-h-[3.0625rem] [@media(max-height:640px)]:max-h-11";
 
 const TONE_STYLES: Record<KeyTone, ToneStyle> = {
   digit: { variant: "outline", className: "bg-card text-lg text-muted-foreground" },
@@ -74,12 +75,14 @@ const TONE_STYLES: Record<KeyTone, ToneStyle> = {
 };
 
 export function Calculator() {
+  const [panel, setPanel] = useState<"calculator" | "history">("calculator");
   const [session, dispatch] = useReducer(reduceSession, INITIAL_SESSION);
   const [storageStatus, setStorageStatus] = useState<string | null>(null);
   const storageReadable = useRef(false);
   const lastSaved = useRef<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const calculatorRef = useRef<HTMLElement>(null);
+  const shouldFocusCalculator = useRef(false);
   const { calculator: state, history, loaded: isReady } = session;
   const display = getDisplay(state);
 
@@ -115,10 +118,19 @@ export function Calculator() {
   }, []);
 
   function restoreHistory(id: string, mode: "edit" | "continue") {
+    shouldFocusCalculator.current = true;
     dispatch({ type: "restore", id, mode });
     setCopyStatus("idle");
-    calculatorRef.current?.focus();
+    setPanel("calculator");
   }
+
+  // hidden 解除後、次のキー入力より前にフォーカスを戻す。
+  useLayoutEffect(() => {
+    if (shouldFocusCalculator.current) {
+      shouldFocusCalculator.current = false;
+      calculatorRef.current?.focus();
+    }
+  }, [state, panel]);
 
   useEffect(() => {
     const element = calculatorRef.current;
@@ -176,32 +188,41 @@ export function Calculator() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <p className="mt-0 mb-4 text-[0.625rem] text-muted-foreground">
-        ツール <span className="mx-2 opacity-50">/</span> 電卓
-      </p>
-
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-xl text-primary md:size-12"
+    <div className="mx-auto flex h-full min-h-0 max-w-[816px] flex-col gap-2">
+      <h1 className="sr-only">電卓</h1>
+      <div role="group" aria-label="表示切替" className="flex shrink-0 gap-2 md:hidden">
+        <Button
+          type="button"
+          size="default"
+          variant={panel === "calculator" ? "default" : "outline"}
+          aria-pressed={panel === "calculator"}
+          aria-controls="calculator-panel"
+          onClick={() => setPanel("calculator")}
         >
-          ＋
-        </span>
-        <div>
-          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">電卓</h1>
-          <p className="mt-1 mb-0 text-sm leading-6 text-muted-foreground">
-            ちょっとした計算を、すぐ手元で。
-          </p>
-        </div>
+          電卓
+        </Button>
+        <Button
+          type="button"
+          size="default"
+          variant={panel === "history" ? "default" : "outline"}
+          aria-pressed={panel === "history"}
+          aria-controls="calculator-history-panel"
+          onClick={() => setPanel("history")}
+        >
+          履歴 {history.length}
+        </Button>
       </div>
 
-      <div className="mt-6 flex flex-col items-center gap-4 md:mt-7">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <section
+          id="calculator-panel"
           ref={calculatorRef}
           aria-label="電卓"
           tabIndex={-1}
-          className="group/calculator w-[calc(100%-28px)] max-w-[396px] rounded-xl border border-border bg-card p-3.5 transition-colors outline-none focus-within:border-ring md:w-full md:rounded-2xl md:p-[17px]"
+          className={cn(
+            "group/calculator h-full max-h-[540px] min-h-0 min-w-0 w-full self-start flex-col rounded-xl border border-border bg-card p-3.5 transition-colors outline-none focus-within:border-ring md:flex md:rounded-2xl md:p-[17px] [@media(max-height:640px)]:p-2.5",
+            panel === "calculator" ? "flex" : "hidden",
+          )}
         >
           <CalculatorDisplay
             display={display}
@@ -212,7 +233,12 @@ export function Calculator() {
 
           <Keypad isReady={isReady} onPress={press} />
 
-          <div className="mx-[3px] mt-[13px] flex items-center justify-between gap-3 text-[0.625rem] text-muted-foreground">
+          <div
+            className={cn(
+              "mx-[3px] mt-[13px] flex shrink-0 items-center justify-between gap-3 text-[0.625rem] text-muted-foreground [@media(max-height:640px)]:mt-2",
+              state.notice === null && "[@media(max-height:520px)]:hidden",
+            )}
+          >
             <p role="status" className="m-0">
               {state.notice ?? "四則演算"}
             </p>
@@ -221,11 +247,15 @@ export function Calculator() {
         </section>
 
         <section
+          id="calculator-history-panel"
           aria-label="計算履歴"
           aria-busy={!isReady}
-          className="w-[calc(100%-28px)] max-w-[396px] rounded-xl border border-border bg-card p-3.5 md:w-full md:rounded-2xl md:p-[17px]"
+          className={cn(
+            "min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card p-3.5 md:flex md:rounded-2xl md:p-[17px]",
+            panel === "history" ? "flex" : "hidden",
+          )}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex shrink-0 items-center justify-between gap-2">
             <h2 className="m-0 text-sm font-semibold">
               履歴{" "}
               <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -254,7 +284,11 @@ export function Calculator() {
           {isReady && history.length === 0 && (
             <p className="my-3 text-center text-xs text-muted-foreground">履歴はありません</p>
           )}
-          <ol className="m-0 max-h-[400px] list-none overflow-y-auto p-0">
+          <ol
+            aria-label="計算履歴一覧"
+            tabIndex={0}
+            className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {history.map(({ id, calculation }) => {
               const saved = getDisplay(calculation);
               return (
@@ -318,8 +352,8 @@ function CalculatorDisplay({
   onCopy: () => void;
 }) {
   return (
-    <div className="min-w-0 rounded-[11px] border border-[#e9dcf8] bg-[#f3ecfc] px-[19px] pt-[15px] pb-[17px] text-right md:px-[21px] md:pt-[17px] md:pb-[19px]">
-      <div className="mb-2 flex items-center justify-between gap-2.5">
+    <div className="flex min-h-[128px] min-w-0 flex-[1_1_150px] flex-col rounded-[11px] border border-[#e9dcf8] bg-[#f3ecfc] px-[19px] pt-[15px] pb-[17px] text-right md:px-[21px] md:pt-[17px] md:pb-[19px] [@media(max-height:640px)]:min-h-[112px] [@media(max-height:640px)]:flex-[1_0_112px] [@media(max-height:640px)]:p-2 [@media(max-height:520px)]:min-h-[96px] [@media(max-height:520px)]:flex-[1_0_96px]">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2.5 [@media(max-height:640px)]:mb-1">
         <span aria-hidden="true" className="text-[0.9375rem] leading-none text-[#c1a6d9]">
           ✧
         </span>
@@ -344,7 +378,9 @@ function CalculatorDisplay({
 
       <p
         data-testid="calculator-expression"
-        className="m-0 min-h-[1.6em] text-[0.8125rem] leading-[1.6] tracking-[0.6px] text-muted-foreground tabular-nums wrap-anywhere"
+        tabIndex={display.expression === "" ? -1 : 0}
+        aria-label="計算式"
+        className="m-0 min-h-0 flex-1 overflow-y-auto text-[0.8125rem] leading-[1.6] tracking-[0.6px] text-muted-foreground tabular-nums wrap-anywhere outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {display.expression === "" ? null : <span className="sr-only">計算式 </span>}
         {display.expression}
@@ -353,7 +389,7 @@ function CalculatorDisplay({
       <output
         aria-label="計算結果"
         className={cn(
-          "mt-[3px] block font-medium tracking-[-1.5px] tabular-nums wrap-anywhere",
+          "mt-[3px] block shrink-0 font-medium tracking-[-1.5px] tabular-nums wrap-anywhere",
           display.isError
             ? "text-3xl text-destructive"
             : ["text-primary", sizeClass(display.result)],
@@ -371,7 +407,7 @@ function Keypad({ isReady, onPress }: { isReady: boolean; onPress: (key: Calcula
     <div
       role="group"
       aria-label="キーパッド"
-      className="mt-[13px] grid grid-cols-4 gap-2 md:mt-[15px] md:gap-[9px]"
+      className="mt-[13px] grid min-h-0 flex-[0_1_282px] grid-cols-4 grid-rows-5 gap-2 md:mt-[15px] md:basis-[281px] md:gap-[9px] [@media(max-height:640px)]:mt-3 [@media(max-height:640px)]:basis-[244px] [@media(max-height:640px)]:gap-1.5"
     >
       {KEYS.map(({ key, label, name, tone, isWide }) => (
         <Button
@@ -415,7 +451,8 @@ function digitKey(digit: Digit): KeyDefinition {
 
 // 桁数が増えたら、枠からはみ出さないよう文字を小さくする。
 function sizeClass(result: string): string {
-  if (result.length <= 9) return "text-[3rem] md:text-[3.1875rem]";
+  if (result.length <= 9)
+    return "text-[clamp(1rem,5dvh,3rem)] md:text-[clamp(1rem,5dvh,3.1875rem)]";
   if (result.length <= 11) return "text-4xl";
   if (result.length <= 14) return "text-[1.75rem]";
   if (result.length <= 20) return "text-xl";
