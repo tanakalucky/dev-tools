@@ -7,15 +7,21 @@ import { cn } from "@/lib/utils";
 
 import {
   EQUALS_SYMBOL,
-  INITIAL_STATE,
   OPERATOR_SYMBOLS,
   getDisplay,
   parseKeyboardKey,
-  pressKey,
   type CalculatorKey,
   type Digit,
   type Display,
 } from "../lib/calculator-state";
+import {
+  HISTORY_LIMIT,
+  HISTORY_STORAGE_KEY,
+  INITIAL_SESSION,
+  parseHistory,
+  reduceSession,
+  serializeHistory,
+} from "../lib/calculator-history";
 
 type CopyStatus = "idle" | "copied" | "failed";
 
@@ -68,19 +74,51 @@ const TONE_STYLES: Record<KeyTone, ToneStyle> = {
 };
 
 export function Calculator() {
-  const [isReady, setIsReady] = useState(false);
-  const [state, dispatch] = useReducer(pressKey, INITIAL_STATE);
+  const [session, dispatch] = useReducer(reduceSession, INITIAL_SESSION);
+  const [storageStatus, setStorageStatus] = useState<string | null>(null);
+  const storageReadable = useRef(false);
+  const lastSaved = useRef<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const calculatorRef = useRef<HTMLElement>(null);
+  const { calculator: state, history, loaded: isReady } = session;
   const display = getDisplay(state);
 
-  // ハイドレーション前の操作は React の状態に反映されないため受け付けない。
-  useEffect(() => setIsReady(true), []);
+  // 読込前は入力と保存を止め、空の初期履歴で保存内容を上書きしない。
+  useEffect(() => {
+    let saved = [] as typeof history;
+    try {
+      saved = parseHistory(localStorage.getItem(HISTORY_STORAGE_KEY));
+      storageReadable.current = true;
+    } catch {
+      setStorageStatus("履歴を読み込めません。この画面内のみ保持します");
+    }
+    lastSaved.current = serializeHistory(saved);
+    dispatch({ type: "load", history: saved });
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || !storageReadable.current) return;
+    const serialized = serializeHistory(history);
+    if (serialized === lastSaved.current) return;
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, serialized);
+      lastSaved.current = serialized;
+      setStorageStatus(null);
+    } catch {
+      setStorageStatus("履歴を保存できません。この画面内のみ保持します");
+    }
+  }, [history, isReady]);
 
   const press = useCallback((key: CalculatorKey) => {
-    dispatch(key);
+    dispatch({ type: "press", key, id: crypto.randomUUID() });
     setCopyStatus("idle");
   }, []);
+
+  function restoreHistory(id: string, mode: "edit" | "continue") {
+    dispatch({ type: "restore", id, mode });
+    setCopyStatus("idle");
+    calculatorRef.current?.focus();
+  }
 
   useEffect(() => {
     const element = calculatorRef.current;
@@ -158,7 +196,7 @@ export function Calculator() {
         </div>
       </div>
 
-      <div className="mt-6 flex justify-center md:mt-7">
+      <div className="mt-6 flex flex-col items-center gap-4 md:mt-7">
         <section
           ref={calculatorRef}
           aria-label="電卓"
@@ -180,6 +218,88 @@ export function Calculator() {
             </p>
             <KeyboardIndicator />
           </div>
+        </section>
+
+        <section
+          aria-label="計算履歴"
+          aria-busy={!isReady}
+          className="w-[calc(100%-28px)] max-w-[396px] rounded-xl border border-border bg-card p-3.5 md:w-full md:rounded-2xl md:p-[17px]"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="m-0 text-sm font-semibold">
+              履歴{" "}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                {history.length} / {HISTORY_LIMIT}
+              </span>
+            </h2>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={!isReady || history.length === 0}
+              onClick={() => {
+                if (window.confirm("計算履歴をすべて削除しますか？")) {
+                  dispatch({ type: "clear-history" });
+                }
+              }}
+            >
+              全削除
+            </Button>
+          </div>
+          {storageStatus && (
+            <p role="status" className="mt-2 text-xs text-destructive">
+              {storageStatus}
+            </p>
+          )}
+          {isReady && history.length === 0 && (
+            <p className="my-3 text-center text-xs text-muted-foreground">履歴はありません</p>
+          )}
+          <ol className="m-0 max-h-[400px] list-none overflow-y-auto p-0">
+            {history.map(({ id, calculation }) => {
+              const saved = getDisplay(calculation);
+              return (
+                <li key={id} className="border-t border-border py-3 first:border-t-0">
+                  <p className="m-0 text-xs text-muted-foreground tabular-nums wrap-anywhere">
+                    {saved.expression}
+                  </p>
+                  <p className="mt-1 mb-2 text-right text-lg font-medium text-primary tabular-nums wrap-anywhere">
+                    {saved.result}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => restoreHistory(id, "edit")}
+                    >
+                      式を直す
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={saved.isError}
+                      onClick={() => restoreHistory(id, "continue")}
+                    >
+                      結果から続ける
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto min-h-11"
+                      aria-label={`${saved.expression} ${saved.result} の履歴を削除`}
+                      onClick={() => dispatch({ type: "delete", id })}
+                    >
+                      削除
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         </section>
       </div>
     </div>

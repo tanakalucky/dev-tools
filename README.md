@@ -1,6 +1,6 @@
 # dev-tools
 
-Browser-only developer utilities. Tool input is processed locally in the browser: it is not sent over the network, not persisted, and not tracked.
+Browser-only developer utilities. Tool input is processed locally in the browser: it is not sent over the network or tracked. The calculator keeps up to 50 calculation history entries in this browser’s localStorage; other tool input is not persisted.
 
 ## Status
 
