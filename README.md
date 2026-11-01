@@ -56,3 +56,9 @@ There is no deploy command yet.
 - import の依存禁止は機械検査される。機械実行の正本は [index.js](tools/oxlint-boundaries/index.js)、`.oxlintrc.json`、`tools/oxlint-boundaries/fixtures/` とテスト(`index.test.ts`)で、`npm run lint` で実行する。[tools/oxlint-boundaries/README.md](tools/oxlint-boundaries/README.md) は検証済みの範囲と限界の説明であり、正本そのものではない。DOM/network 非依存など lint が見ない純粋性は検査されない。
 
 - `e2e/` - Playwright browser tests (`*.pw.ts`), configured in `playwright.config.ts`.
+
+## 開発用の共通指示
+
+[AGENTS.md](AGENTS.md) を正本とし、`CLAUDE.md` はそこへの相対symlinkです。
+AAA・共通レビュー本文と両ツールの入口は [.ai-config/README.md](.ai-config/README.md) にまとめています。
+アプリ固有の依存ルール・UI部品・検証手順はこのREADMEと各featureのREADMEを引き続き参照します。
