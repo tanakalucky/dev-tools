@@ -369,6 +369,8 @@ test.describe("Calculator keyboard", () => {
     await page.getByRole("navigation", { name: "ツール" }).getByRole("link").last().focus();
     await page.keyboard.press("Tab");
 
+    await expect(page.getByRole("button", { name: "貼り付け", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(key(page, "C")).toBeFocused();
     await expect(key(page, "C")).not.toHaveCSS("box-shadow", "none");
   });
