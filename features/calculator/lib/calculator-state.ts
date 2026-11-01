@@ -36,6 +36,39 @@ export const EQUALS_SYMBOL = "＝";
 export const DIVIDE_BY_ZERO_MESSAGE = "0で割れません";
 export const MAX_OPERAND_DIGITS = 40;
 export const TOO_MANY_DIGITS_NOTICE = `1つの数値は${MAX_OPERAND_DIGITS}桁までです`;
+export const INVALID_PASTE_NOTICE = "数値だけ貼り付けてください";
+
+export type PastedNumber = { value: string; notice: null } | { value: null; notice: string };
+
+export function parsePastedNumber(text: string): PastedNumber {
+  const trimmed = text.trim();
+  // カンマは整数部の3桁区切りのみ。式・指数表記・非有限値は受け付けない。
+  if (!/^[+-]?(?:(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d*)?|\.\d+)$/.test(trimmed)) {
+    return { value: null, notice: INVALID_PASTE_NOTICE };
+  }
+  const unsigned = trimmed.replace(/^[+-]/, "").replaceAll(",", "");
+  const [integer = "", fraction] = unsigned.split(".");
+  const normalized =
+    (integer.replace(/^0+(?=\d)/, "") || "0") + (fraction === undefined ? "" : `.${fraction}`);
+  if (countDigits(normalized) > MAX_OPERAND_DIGITS) {
+    return { value: null, notice: TOO_MANY_DIGITS_NOTICE };
+  }
+  return { value: (trimmed.startsWith("-") ? "-" : "") + normalized, notice: null };
+}
+
+export function pasteNumber(state: CalculatorState, text: string): CalculatorState {
+  const parsed = parsePastedNumber(text);
+  if (parsed.value === null) return { ...state, notice: parsed.notice };
+  const base = state.outcome === null ? state : INITIAL_STATE;
+  const startsOperand = base.operators.length === base.operands.length;
+  const kept = startsOperand ? base.operands : base.operands.slice(0, -1);
+  return {
+    ...base,
+    operands: [...kept, parsed.value],
+    carryDisplay: !startsOperand && base.operands.length === 1 ? null : base.carryDisplay,
+    notice: null,
+  };
+}
 
 export const INITIAL_STATE: CalculatorState = {
   operands: [],
@@ -225,7 +258,9 @@ function appendToOperand(current: string, key: Digit | "."): string {
     return current.includes(".") ? current : `${current === "" ? "0" : current}.`;
   }
 
-  return current === "0" ? key : current + key;
+  if (current === "0") return key;
+  if (current === "-0") return `-${key}`;
+  return current + key;
 }
 
 function dropTrailingDot(operands: string[]): string[] {

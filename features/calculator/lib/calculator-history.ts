@@ -1,6 +1,7 @@
 import {
   INITIAL_STATE,
   pressKey,
+  pasteNumber,
   type CalculatorKey,
   type CalculatorState,
 } from "./calculator-state";
@@ -25,6 +26,7 @@ export const INITIAL_SESSION: CalculatorSession = {
 export type SessionAction =
   | { type: "load"; history: HistoryEntry[] }
   | { type: "press"; key: CalculatorKey; id: string }
+  | { type: "paste"; text: string }
   | { type: "restore"; id: string; mode: "edit" | "continue" }
   | { type: "delete"; id: string }
   | { type: "clear-history" };
@@ -40,6 +42,8 @@ export function reduceSession(
   if (!session.loaded) return session;
 
   switch (action.type) {
+    case "paste":
+      return { ...session, calculator: pasteNumber(session.calculator, action.text) };
     case "press": {
       const calculator = pressKey(session.calculator, action.key);
       const completed = session.calculator.outcome === null && calculator.outcome !== null;

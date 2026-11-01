@@ -10,6 +10,7 @@ import {
   OPERATOR_SYMBOLS,
   getDisplay,
   parseKeyboardKey,
+  parsePastedNumber,
   type CalculatorKey,
   type Digit,
   type Display,
@@ -22,6 +23,7 @@ import {
   reduceSession,
   serializeHistory,
 } from "../lib/calculator-history";
+import { NumberPasteDialog } from "./number-paste-dialog";
 
 type CopyStatus = "idle" | "copied" | "failed";
 
@@ -81,6 +83,9 @@ export function Calculator() {
   const storageReadable = useRef(false);
   const lastSaved = useRef<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
+  const [isReadingPaste, setIsReadingPaste] = useState(false);
+  const [manualPasteOpen, setManualPasteOpen] = useState(false);
+  const pasteRequest = useRef(0);
   const calculatorRef = useRef<HTMLElement>(null);
   const shouldFocusCalculator = useRef(false);
   const { calculator: state, history, loaded: isReady } = session;
@@ -112,12 +117,70 @@ export function Calculator() {
     }
   }, [history, isReady]);
 
-  const press = useCallback((key: CalculatorKey) => {
-    dispatch({ type: "press", key, id: crypto.randomUUID() });
-    setCopyStatus("idle");
+  const cancelPasteRead = useCallback(() => {
+    pasteRequest.current += 1;
+    setIsReadingPaste(false);
   }, []);
 
+  useEffect(
+    () => () => {
+      pasteRequest.current += 1;
+    },
+    [],
+  );
+
+  const press = useCallback(
+    (key: CalculatorKey) => {
+      cancelPasteRead();
+      dispatch({ type: "press", key, id: crypto.randomUUID() });
+      setCopyStatus("idle");
+    },
+    [cancelPasteRead],
+  );
+
+  const pasteText = useCallback(
+    (text: string): string | null => {
+      const parsed = parsePastedNumber(text);
+      cancelPasteRead();
+      if (parsed.value !== null) {
+        shouldFocusCalculator.current = true;
+        setManualPasteOpen(false);
+      }
+      dispatch({ type: "paste", text });
+      setCopyStatus("idle");
+      return parsed.notice;
+    },
+    [cancelPasteRead],
+  );
+
+  async function handlePaste() {
+    const request = ++pasteRequest.current;
+    setIsReadingPaste(true);
+    try {
+      // ユーザーのボタン操作時だけ読む。通常のCmd/Ctrl+Vはpasteイベントを使う。
+      const text = await navigator.clipboard.readText();
+      if (request !== pasteRequest.current) return;
+      pasteText(text);
+    } catch {
+      if (request === pasteRequest.current) setManualPasteOpen(true);
+    } finally {
+      if (request === pasteRequest.current) setIsReadingPaste(false);
+    }
+  }
+
+  function changePanel(next: "calculator" | "history") {
+    cancelPasteRead();
+    setPanel(next);
+  }
+
+  function closeManualPaste() {
+    cancelPasteRead();
+    setManualPasteOpen(false);
+    calculatorRef.current?.focus();
+  }
+
   function restoreHistory(id: string, mode: "edit" | "continue") {
+    cancelPasteRead();
     shouldFocusCalculator.current = true;
     dispatch({ type: "restore", id, mode });
     setCopyStatus("idle");
@@ -140,6 +203,11 @@ export function Calculator() {
     }
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("input, textarea, [contenteditable], [data-calculator-paste]")
+      )
+        return;
       const key = parseKeyboardKey(event.key);
 
       if (key === null || event.defaultPrevented || event.isComposing) {
@@ -175,6 +243,7 @@ export function Calculator() {
   }, [copyStatus]);
 
   async function handleCopy() {
+    cancelPasteRead();
     if (display.copyText === null) {
       return;
     }
@@ -197,7 +266,7 @@ export function Calculator() {
           variant={panel === "calculator" ? "default" : "outline"}
           aria-pressed={panel === "calculator"}
           aria-controls="calculator-panel"
-          onClick={() => setPanel("calculator")}
+          onClick={() => changePanel("calculator")}
         >
           電卓
         </Button>
@@ -207,7 +276,7 @@ export function Calculator() {
           variant={panel === "history" ? "default" : "outline"}
           aria-pressed={panel === "history"}
           aria-controls="calculator-history-panel"
-          onClick={() => setPanel("history")}
+          onClick={() => changePanel("history")}
         >
           履歴 {history.length}
         </Button>
@@ -219,6 +288,21 @@ export function Calculator() {
           ref={calculatorRef}
           aria-label="電卓"
           tabIndex={-1}
+          onPaste={(event) => {
+            if (!isReady || event.defaultPrevented) return;
+            if (
+              event.target instanceof HTMLElement &&
+              event.target.closest("input, textarea, [contenteditable], [data-calculator-paste]")
+            )
+              return;
+            event.preventDefault();
+            try {
+              pasteText(event.clipboardData.getData("text/plain"));
+            } catch {
+              cancelPasteRead();
+              setManualPasteOpen(true);
+            }
+          }}
           className={cn(
             "group/calculator h-full max-h-[540px] min-h-0 min-w-0 w-full self-start flex-col rounded-xl border border-border bg-card p-3.5 transition-colors outline-none focus-within:border-ring md:flex md:rounded-2xl md:p-[17px] [@media(max-height:640px)]:p-2.5",
             panel === "calculator" ? "flex" : "hidden",
@@ -229,6 +313,14 @@ export function Calculator() {
             copyStatus={copyStatus}
             canCopy={isReady && display.copyText !== null}
             onCopy={handleCopy}
+            canPaste={isReady && !isReadingPaste}
+            onPaste={handlePaste}
+          />
+
+          <NumberPasteDialog
+            open={manualPasteOpen}
+            onClose={closeManualPaste}
+            onPaste={pasteText}
           />
 
           <Keypad isReady={isReady} onPress={press} />
@@ -268,6 +360,7 @@ export function Calculator() {
               variant="ghost"
               disabled={!isReady || history.length === 0}
               onClick={() => {
+                cancelPasteRead();
                 if (window.confirm("計算履歴をすべて削除しますか？")) {
                   dispatch({ type: "clear-history" });
                 }
@@ -325,7 +418,10 @@ export function Calculator() {
                       variant="ghost"
                       className="ml-auto min-h-11"
                       aria-label={`${saved.expression} ${saved.result} の履歴を削除`}
-                      onClick={() => dispatch({ type: "delete", id })}
+                      onClick={() => {
+                        cancelPasteRead();
+                        dispatch({ type: "delete", id });
+                      }}
                     >
                       削除
                     </Button>
@@ -345,24 +441,40 @@ function CalculatorDisplay({
   copyStatus,
   canCopy,
   onCopy,
+  canPaste,
+  onPaste,
 }: {
   display: Display;
   copyStatus: CopyStatus;
   canCopy: boolean;
   onCopy: () => void;
+  canPaste: boolean;
+  onPaste: () => void;
 }) {
   return (
     <div className="flex min-h-[128px] min-w-0 flex-[1_1_150px] flex-col rounded-[11px] border border-[#e9dcf8] bg-[#f3ecfc] px-[19px] pt-[15px] pb-[17px] text-right md:px-[21px] md:pt-[17px] md:pb-[19px] [@media(max-height:640px)]:min-h-[112px] [@media(max-height:640px)]:flex-[1_0_112px] [@media(max-height:640px)]:p-2 [@media(max-height:520px)]:min-h-[96px] [@media(max-height:520px)]:flex-[1_0_96px]">
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2.5 [@media(max-height:640px)]:mb-1">
-        <span aria-hidden="true" className="text-[0.9375rem] leading-none text-[#c1a6d9]">
-          ✧
+        <span role="status" className="min-w-0 text-[0.625rem] text-muted-foreground">
+          {copyStatus === "copied" ? "コピーしました" : null}
+          {copyStatus === "failed" ? "コピーできませんでした" : null}
+          {copyStatus === "idle" ? (
+            <span aria-hidden="true" className="text-[0.9375rem] leading-none text-[#c1a6d9]">
+              ✧
+            </span>
+          ) : null}
         </span>
 
-        <div className="flex items-center gap-2">
-          <span role="status" className="text-[0.625rem] text-muted-foreground">
-            {copyStatus === "copied" ? "コピーしました" : null}
-            {copyStatus === "failed" ? "コピーできませんでした" : null}
-          </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="bg-card"
+            disabled={!canPaste}
+            onClick={onPaste}
+          >
+            貼り付け
+          </Button>
           <Button
             type="button"
             size="xs"
