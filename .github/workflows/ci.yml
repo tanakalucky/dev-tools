@@ -26,6 +26,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: 共通configの参照と配置の検証
+        run: python3 -B -m unittest discover -s .ai-config/tests -v
       - run: npm test
       - run: npm run typecheck
       - run: npm run lint
