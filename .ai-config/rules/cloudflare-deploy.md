@@ -4,12 +4,12 @@ Cloudflareの導入・変更は[共通手順](../workflows/cloudflare-deploy.md)
 
 ## 共通のライフサイクル
 
-| 契機 | 到達する状態 |
-| --- | --- |
-| PR 作成・reopen、対象 commit の CI 成功 | PR 番号から `pr-1` のような preview を作成する |
-| 同じ PR への追加 push、対象 commit の CI 成功 | 同じ preview を最新 head へ更新する |
-| PR close・merge | その PR の preview を cleanup する |
-| main の対象 commit の CI 成功 | 本番へ反映する |
+| 契機                                          | 到達する状態                                   |
+| --------------------------------------------- | ---------------------------------------------- |
+| PR 作成・reopen、対象 commit の CI 成功       | PR 番号から `pr-1` のような preview を作成する |
+| 同じ PR への追加 push、対象 commit の CI 成功 | 同じ preview を最新 head へ更新する            |
+| PR close・merge                               | その PR の preview を cleanup する             |
+| main の対象 commit の CI 成功                 | 本番へ反映する                                 |
 
 PR 番号は GitHub の正の整数から取り、ブランチ名や PR 本文を識別子・shell コードに使わない。
 プレビュー URL と対象 SHA を結果に残す。本番を PR の成果物から直接昇格させない。

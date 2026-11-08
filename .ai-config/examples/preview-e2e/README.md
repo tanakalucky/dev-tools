@@ -66,7 +66,9 @@ REST の送信先は `POST /repos/{owner}/{repo}/actions/workflows/preview-e2e.y
 PR本文をコードに展開したり、PRの依存 install をこのjobで実行したりしない。
 
 ```js
-const { dispatch } = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/preview-e2e.mjs`);
+const { dispatch } = await import(
+  `${process.env.GITHUB_WORKSPACE}/.github/scripts/preview-e2e.mjs`
+);
 await dispatch({ github, context, inputs: verifiedInputs });
 ```
 

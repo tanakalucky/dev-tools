@@ -20,8 +20,12 @@
 ```sh
 readlink CLAUDE.md
 python3 -B -m unittest discover -s .ai-config/tests -v
-node --test .ai-config/examples/preview-e2e/preview-e2e.test.mjs
+npm run test:ai-config
 ```
 
 期待するリンク先は `AGENTS.md`。標準ライブラリで参照がアプリ内に解決することを確認する。
 静的な配置確認は、CLIでの実探索・委譲・sandbox強制や実Preview E2Eの検証とは区別する。
+
+npm testは既存のVitestテストの後にNodeのサンプルテストを実行する。`.ai-config/examples/**` だけをVitestの収集対象から除く。
+共通本文は既存Oxfmtの規則に合わせて整形するため、固定上流とは書式のみ異なるファイルがある。
+CIはPRの実head（pushでは対象commit）をcheckoutして検証する。

@@ -69,13 +69,13 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22'
+          node-version: "22"
       - run: npm ci
       - run: npx --no-install playwright install --with-deps chromium
       # Define this command in the application's package.json. Do not start localhost.
       - run: npm run test:e2e:preview
         env:
-          CI: 'true'
+          CI: "true"
           PLAYWRIGHT_BASE_URL: ${{ needs.verify.outputs.preview_url }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}

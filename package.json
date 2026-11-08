@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run",
+    "test": "vitest run --exclude \".ai-config/examples/**\" && npm run test:ai-config",
     "test:e2e": "playwright test",
     "lint": "oxlint",
     "fmt:check": "oxfmt --check",
     "format": "oxfmt",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:ai-config": "node --test .ai-config/examples/preview-e2e/preview-e2e.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
